@@ -65,7 +65,11 @@ Arguments:
   -g               Debug build (default is release build.
   -v               Display Compiler/linker options.
   --bldnum M       Passes 'M' as build number information for the build. 
-                   [Default: 0].          
+                   [Default: 0].   
+  --bldtime        Sets the preprocessor symbol BUILD_TIME_UTC to the Host's
+                   current time (else the symbol is set to 0).  Note: When
+                   option is enable it will trigger a full rebuild, i.e. 
+                   typically only enabled when do a CI/formal build.
   --def1 SYM1      Defines (as a compiler option) the preprocessor 'SYM1'.
   --def2 SYM2      Defines (as a compiler option) the preprocessor 'SYM2'.
   --def3 SYM3      Defines (as a compiler option) the preprocessor 'SYM3'.
@@ -161,6 +165,11 @@ def build( argv, toolchain ):
 #-----------------------------------------------------------------------------
 def do_build( printer, toolchain, arguments, variant ):
 
+    # Create the variant directory (aka the build output directory)
+    vardir = '_' + variant
+    utils.create_subdirectory( printer, '.', vardir )
+    utils.push_dir( vardir )
+
     # Create the Ninja writer and empty ninja build file
     with open(ninja_fname, 'w') as ninja_file:
         nwriter = Writer( ninja_file )
@@ -199,29 +208,40 @@ def do_build( printer, toolchain, arguments, variant ):
         
                             
         # Generate ninja content for each libdirs.b directory
+        builtlibs = []
         for d in toolchain.libdirs:
-            build_single_directory( printer, arguments, toolchain, d[0], d[1], NQBP_PKG_ROOT(), NQBP_WORK_ROOT(), NQBP_WRKPKGS_DIRNAME(), NQBP_PRJ_DIR(), NQBP_PRE_PROCESS_SCRIPT(), NQBP_PRE_PROCESS_SCRIPT_ARGS() )
+            builtlibs.append( build_single_directory( printer, arguments, toolchain, d[0], d[1], NQBP_PKG_ROOT(), NQBP_WORK_ROOT(), NQBP_WRKPKGS_DIRNAME(), NQBP_PRJ_DIR(), NQBP_PRE_PROCESS_SCRIPT(), NQBP_PRE_PROCESS_SCRIPT_ARGS() ) )
 
         # Generate ninja content for the Build project dir
         utils.run_pre_processing_script( printer, NQBP_PRJ_DIR(), NQBP_WORK_ROOT(), NQBP_PKG_ROOT(), NQBP_PRJ_DIR(), NQBP_PRE_PROCESS_SCRIPT(), NQBP_PRE_PROCESS_SCRIPT_ARGS(),  verbose=arguments['-v'] )
-        files = utils.get_files_to_build( printer, toolchain, '.', NQBP_NAME_SOURCES() )
+        files = utils.get_files_to_build( printer, toolchain, '..', NQBP_NAME_SOURCES() )
         toolchain._ninja_writer.newline()
         toolchain._ninja_writer.comment( "Project Directory:" )
         toolchain._ninja_writer.newline()
         objfiles = []
         for f in files:
-            objfiles.append( toolchain.cc( arguments, '.' + os.sep + f, '.' ) )
+            objfiles.append( toolchain.cc( arguments, '..' + os.sep + f, '.' ) )
+        
+        # Run pre-link. Note: The pre-link function has 'side effects' inside the toolchain instance
+        inf = open( os.path.join( "..", NQBP_NAME_LIBDIRS()), 'r' )
+        toolchain.pre_link( arguments, inf, 'local', variant, builtlibs )
+        inf.close()
         
         # Generate ninja content for the link
-        #inf = open( NQBP_NAME_LIBDIRS(), 'r' )
-        #link_libdirs = toolchain.pre_link( arguments, inf, 'local', variant )
-        #inf.close()
-        #toolchain.link( arguments, link_libdirs, 'local', variant )
-                            
-    # TODO: INVOKE NINJA
+        toolchain.link( arguments, builtlibs, objfiles, 'local' )
+
+        # Finalize the ninja file
+        toolchain._ninja_writer.newline()
+        toolchain._ninja_writer.default( toolchain.get_final_output_name() )
+        ninja_file.close()
+        
+        # Run ninja
+        verbose = '-v' if arguments['-v'] else ''
+        utils.run_shell2( f"ninja {verbose}", True, "ERROR: Build failed." )
 
     # Output end banner
     end_banner(printer, toolchain)
+    utils.pop_dir()
      
 #-----------------------------------------------------------------------------
 def pre_build_steps(printer, toolchain, arguments ):
@@ -276,10 +296,6 @@ def build_single_directory( printer, arguments, toolchain, dir, entry, pkg_root,
    
     srcpath, display, dir = utils.derive_src_path( pkg_root, work_root, pkgs_dirname, entry, dir )
 
-    # Banner 
-    printer.output( "=====================" )
-    printer.output( "= Building Directory: " + display )
-
     # Debug info
     printer.debug( "#   entry  = {}".format( entry ) )
     printer.debug( "#   objdir = {}".format( dir[0] ) )
@@ -309,5 +325,6 @@ def build_single_directory( printer, arguments, toolchain, dir, entry, pkg_root,
         objfiles.append( toolchain.cc( arguments, srcpath + os.sep + f, dir[0] ) )
 
     # build archive
-    toolchain.ar( arguments, objfiles, dir[0]  )
+    builtlib = toolchain.ar( arguments, objfiles, dir[0]  )
+    return (builtlib, objfiles)
         

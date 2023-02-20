@@ -15,12 +15,12 @@ export PATH=$PATH:./
 export NQBP_PKG_ROOT=$HERE
 export NQBP_WORK_ROOT=$HERE/..
 export NQBP_XPKGS_ROOT=$HERE/xsrc
-export NQBP_BIN=$NQBP_XPKGS_ROOT/nqbp
+export NQBP_BIN=$NQBP_WORK_ROOT/../../
 
 
 alias t="cd $HERE"
-alias bob="$HERE/xsrc/nqbp/other/bob.py"
-alias chuck="$HERE/xsrc/nqbp/other/chuck.py"
+alias bob="$NQBP_BIN/other/bob.py"
+alias chuck="$NQBP_BIN/other/chuck.py"
 
 # Assumes the GCC is already in the command path
 echo "Environment set (using native GCC compiler)"

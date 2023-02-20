@@ -17,6 +17,10 @@ class ToolChain( base.ToolChain ):
         base.ToolChain.__init__( self, exename, prjdir, build_variants, default_variant )
         self._ccname = 'Mingw_W64'
         
+        # Windows specific stuffs
+        self._rm        = 'cmd /c erase /F /S /Q'
+        self._rm_suffix = '1>nul 2>nul'
+
         # more stuff to clean
         self._clean_list.extend( ['xml'] )
 
@@ -39,7 +43,7 @@ class ToolChain( base.ToolChain ):
         # Common/base options, flags, etc.
         
         #self._base_xyz = self._base_release.copy()
-        #self._base_xyz.cflags  = '-c -DBUILD_TIME_UTC={:d}'.format(self._build_time_utc)
+        #self._base_xyz.cflags  = '-c '
         
         # Optimized options, flags, etc.
         #self._optimized_xyz = self._optimized_release.copy()

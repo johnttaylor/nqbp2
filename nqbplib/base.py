@@ -127,7 +127,7 @@ class ToolChain:
         self._asm       = 'as'   
         self._ar        = 'ar'   
         self._objcpy    = 'objcpy'
-        self._rm        = 'rm -rf'
+        self._rm        = 'rm -f'
         self._rm_suffix = ''
 
         
@@ -139,21 +139,21 @@ class ToolChain:
         
         self._validate_cc_options = '-v'
         
-        self._clean_list     = ['ninja', 'ninja_deps', 'ninja_log', 'o', 'd', 'lst', 'txt', 'map', 'obj', 'idb', 'pdb', 'out', 'pyc', NQBP_TEMP_EXT(), 'gcda', 'gcov', 'gcno', 'tmp' ]
-        self._clean_pkg_dirs = [ 'src' ]
-        self._clean_ext_dirs = [ NQBP_WRKPKGS_DIRNAME() ]
-        self._clean_abs_dirs = [ '__abs' ]
+        self._clean_list     = []
+        self._clean_pkg_dirs = []
+        self._clean_ext_dirs = []
+        self._clean_abs_dirs = []
  
         self._ar_library_name = 'library.a'
         self._ar_options      = ''
-        self._ar_out          = 'rc '
+        self._ar_out          = 'crs '
 
         self._link_lib_prefix       = ''
         self._linker_libgroup_start = '-Wl,--start-group'
         self._linker_libgroup_end   = '-Wl,--end-group'
         
         self._final_output_name = exename
-        self._link_output       = '-o ' + exename
+        self._link_output       = '-o '
         
 
 
@@ -174,7 +174,7 @@ class ToolChain:
         self._base_release = BuildValues()
         self._base_release.inc       = '-I. -I{}{}src  -I{} -I{}'.format(NQBP_PKG_ROOT(),os.sep, prjdir, NQBP_XPKGS_SRC_ROOT()  )
         self._base_release.asminc    = self._base_release.inc
-        self._base_release.cflags    = '-c -DBUILD_TIME_UTC={:d} '.format(self._build_time_utc)
+        self._base_release.cflags    = '-c '
         self._base_release.asmflags  = self._base_release.cflags
         self._base_release.linklibs  = '-Wl,-lstdc++ -Wl,-lm'
         
@@ -205,7 +205,6 @@ class ToolChain:
     #--------------------------------------------------------------------------
     def get_default_variant(self):
         return self._bld
-        
         
     #--------------------------------------------------------------------------
     def list_variants(self):
@@ -362,18 +361,18 @@ class ToolChain:
         self.libdirs  = []
         self.libnames = []
         if ( not arguments['--clean-all'] ):        # Skip if doing a --clean-all
-            inf = open( NQBP_NAME_LIBDIRS(), 'r' )
+            inf = open( os.path.join( "..", NQBP_NAME_LIBDIRS()), 'r' )
             utils.create_working_libdirs( self._printer, inf, arguments, self.libdirs, self.libnames, 'local', bld_var )  
             inf.close()
 
             # Start the Ninja file
-            self._start_ninja_file();
+            self._start_ninja_file( bld_var, arguments );
 
     #--------------------------------------------------------------------------
     def ar( self, arguments, objfiles, relative_objpath ):
 
         # Create output filename
-        outputname = utils.strip_drive_letter( os.path.join( NQBP_PRJ_DIR(), relative_objpath, self._ar_library_name ) ) 
+        outputname = os.path.join( relative_objpath, self._ar_library_name ) 
       
         # Generate ninja build statement
         self._ninja_writer.build( 
@@ -381,8 +380,9 @@ class ToolChain:
             rule = 'ar',
             inputs = objfiles,
             variables = {"aropts":self._ar_options, "arout":self._ar_out} )
+        
         self._ninja_writer.newline()
-
+        return outputname
                    
     #--------------------------------------------------------------------------
     def validate_cc( self ):
@@ -428,7 +428,7 @@ class ToolChain:
         full_fname = utils.standardize_dir_sep( fullname )
 
         # Create output file name
-        outputname = utils.strip_drive_letter( os.path.join( NQBP_PRJ_DIR(), relative_objpath, basename ) ) + '.' +  self._obj_ext
+        outputname = os.path.join(relative_objpath, basename ) + '.' +  self._obj_ext
 
         # Generate ninja build statement
         self._ninja_writer.build( 
@@ -442,64 +442,39 @@ class ToolChain:
 
     #--------------------------------------------------------------------------
     #
-    def pre_link(self, arguments, inf, local_external_setting, variant ):
+    def pre_link(self, arguments, inf, local_external_setting, variant, builtlibs ):
         self._printer.debug( '# ENTER: base.ToolChain.pre_link' )
         
-        # Set my command options to construct an 'all' libdirs list
-        libdirs  = []
-        libnames = []
-        myargs   = { '-p':False, '-x':False, '-b':arguments['-b'], '--noabs':False, '-q':None, '-Q':None, '-c':None, '-C':None }
-        utils.create_working_libdirs( self._printer, inf, myargs, libdirs, libnames, local_external_setting, variant )  
-        
         # Expand any _BUILD_DIR.aaaa symbols for .firstobjs and .lastobjs
-        self._all_opts.firstobjs = utils.replace_build_dir_symbols(self,  self._all_opts.firstobjs, libdirs, ".." )
-        self._all_opts.lastobjs  = utils.replace_build_dir_symbols(self,  self._all_opts.lastobjs, libdirs, ".." )
-        
-
-        # Return the 'all' libdirs list
-        return libdirs
+        self._all_opts.firstobjs = utils.replace_build_dir_symbols(self,  self._all_opts.firstobjs, builtlibs, "." )
+        self._all_opts.lastobjs  = utils.replace_build_dir_symbols(self,  self._all_opts.lastobjs, builtlibs, "." )
 
     #
-    def link( self, arguments, libdirs, local_external_setting, variant ):
-        pass
-        ## Output Progress...
-        #self._printer.output( "=====================" )
-        #self._printer.output("= Linking..." )
-        #
-        ## create build variant output
-        #vardir = '_' + self._bld
-        #utils.create_subdirectory( self._printer, '.', vardir )
-        #utils.push_dir( vardir )
-        #
-        ## construct link command
-        #libs = self._build_library_list( libdirs )
-        #startgroup = self._linker_libgroup_start if libs != '' else ''
-        #endgroup   = self._linker_libgroup_end   if libs != '' else ''
-        #ld = '{} {} {} {} {} {} {} {} {} {} {}'.format( 
-        #                                    self._ld,
-        #                                    self._link_output,
-        #                                    self._all_opts.firstobjs,
-        #                                    self._build_prjobjs_list(),
-        #                                    self._all_opts.linkflags,
-        #                                    self._all_opts.linkscript,
-        #                                    startgroup,
-        #                                    libs,
-        #                                    endgroup,
-        #                                    self._all_opts.linklibs,
-        #                                    self._all_opts.lastobjs
-        #                                    )
-        #                                  
-        ## do the compile
-        #if ( arguments['-v'] ):
-        #    self._printer.output( ld )
-        #if ( utils.run_shell(self._printer, ld) ):
-        #    self._printer.output("=")
-        #    self._printer.output("= Build Failed: linker error")
-        #    self._printer.output("=")
-        #    sys.exit(1)
-        #
-        ## Return to project dir
-        #utils.pop_dir()
+    def link( self, arguments, builtlibs, objfiles, local_external_setting):
+        libs = []
+        for item in builtlibs:
+            libs.append(item[0])
+
+        startgroup = self._linker_libgroup_start if len(libs) > 0 else ''
+        endgroup   = self._linker_libgroup_end   if len(libs) > 0 else ''
+        ldopts = '{} {} {} {} {} {} {} {} {}'.format( 
+                                            self._all_opts.firstobjs,
+                                            " ".join(objfiles),
+                                            self._all_opts.linkflags,
+                                            self._all_opts.linkscript,
+                                            startgroup,
+                                            " ".join(libs),
+                                            endgroup,
+                                            self._all_opts.linklibs,
+                                            self._all_opts.lastobjs
+                                            )
+        self._ninja_writer.build(
+            outputs    = self._final_output_name,
+            rule       = 'link',
+            inputs     = objfiles ,
+            order_only = libs,
+            variables  = {"ldopts":ldopts, "ldout":self._link_output} )
+        self._ninja_writer.newline()
         
         
     #==========================================================================
@@ -507,7 +482,7 @@ class ToolChain:
     #==========================================================================
     
     #--------------------------------------------------------------------------
-    def _start_ninja_file( self ):
+    def _start_ninja_file( self, bld_variant, arguments ):
         self._ninja_writer.comment( "Project Build" )
         self._ninja_writer.comment( "This file is auto generated by nqbp.py" )
         self._ninja_writer.newline()
@@ -520,21 +495,24 @@ class ToolChain:
         self._ninja_writer.variable( 'objcpy', f"{self._objcpy}" )
         self._ninja_writer.variable( 'rm', f"{self._rm}" )
         self._ninja_writer.variable( 'rm_suffix', f"{self._rm_suffix}" )
+        self._ninja_writer.variable( 'buildtime', f"{self.get_build_time}" if arguments['--bldtime']  else "0" )
         self._ninja_writer.newline()
         self._build_compile_rule()
         self._ninja_writer.newline()
         self._build_ar_rule()
         self._ninja_writer.newline()
+        self._build_link_rule()
+        self._ninja_writer.newline()
         self._ninja_writer.newline()
 
+
     def _build_compile_rule( self ):
-        # TODO: Replace with default gcc version
-        self._ninja_writer.variable( 'msvc_deps_prefix', 'Note: including file:' )
         self._ninja_writer.rule( 
             name = 'compile', 
-            command = "$cc $ccopts $in /Fo: $out", 
+            command = f"$cc -MMD -MT $out -MF $out.d {self._cflag_symdef}BUILD_TIME_UTC=$buildtime $ccopts $in -o $out", 
             description = "Compiling: $in", 
-            deps = 'msvc' )
+            depfile = "$out.d",
+            deps = 'gcc' )
         self._ninja_writer.newline()
 
     def _build_ar_rule( self ):
@@ -545,6 +523,14 @@ class ToolChain:
             description = "Archiving Directory: $out" )
         self._ninja_writer.newline()
         
+    def _build_link_rule( self ):
+        # TODO: Replace with default gcc version
+        self._ninja_writer.rule( 
+            name = 'link', 
+            command = "$ld ${ldout}${out} ${ldopts}", 
+            description = "Linking: $out" )
+        self._ninja_writer.newline()
+
     #--------------------------------------------------------------------------
     def _format_custom_c_define( self, sym ):
         return self._cflag_symdef   + self._cflag_symvalue_delimiter   + sym + self._cflag_symvalue_delimiter + ' '
@@ -553,16 +539,6 @@ class ToolChain:
         return self._asmflag_symdef + self._asmflag_symvalue_delimiter + sym + self._asmflag_symvalue_delimiter + ' '
     
 
-    #--------------------------------------------------------------------------
-    def _build_prjobjs_list( self ):
-        list = utils.dir_list_filter_by_ext( '..' + os.sep, [self._obj_ext], derivedDir=True )
-        path = ''
-        for i in list:
-            path += ' ..' + os.sep + i
-        
-        return path
-        
-        
     #--------------------------------------------------------------------------
     def _build_library_list( self, libs ):
         result = ''

@@ -54,20 +54,6 @@ def dir_list_filter_by_ext(dir, exts, derivedDir=False):
     return results
 
 
-def get_objects_list( objext, objpath, new_root ):
-    """ Returns a list (as a single string) of object files for specified object 
-        path with each object having the 'new_root' appended to it path.
-    """
-
-    files = dir_list_filter_by_ext( objpath, objext.split(), derivedDir=True )
-    objs  = '';
-    for f in files:
-        basename = os.path.splitext(f)[0]
-        basename = os.path.join(new_root, objpath, basename)
-        objs     = objs + ' ' + basename + '.' + objext
-
-    return objs
-
 def walk_file_list( pattern, pkgpath, skipdir=None ):
     """ Generates a list of files in a directory and with the ability to skip a specified directory tree """
 
@@ -578,7 +564,7 @@ def get_and_filter_files_to_build( printer, toolchain, dir, srcpath, sources_b )
     return files
 
 #-----------------------------------------------------------------------------
-def replace_build_dir_symbols( toolchain, objects_string, libdirs, new_root ):
+def replace_build_dir_symbols( toolchain, objects_string, builtlibs, new_root ):
     objects_string = standardize_dir_sep(objects_string)
 
     # Do nothing if no symbol(s) to expand
@@ -601,15 +587,19 @@ def replace_build_dir_symbols( toolchain, objects_string, libdirs, new_root ):
         tokens = tokens[1].split(' ', 1)
         #print( " Second split", tokens)
         
-        # Get corresponding entry from the libdir.b
-        result, dir, entry = find_libdir_entry( libdirs, tokens[0] )
-        #print( result, dir, entry)
-        if ( result == False ):
-            print( "ERROR: Cannot find directory entry (in libdirs.b) for {}".format( objects_string ) )
+        # Get corresponding entry from the built libs
+        matchlib = None
+        for item in builtlibs:
+            dirname = os.path.dirname(item[0])
+            if ( dirname == tokens[0] ):
+                matchlib = item
+                break
+        if ( matchlib == None ):
+            print( f"ERROR: Cannot find directory entry (in libdirs.b) for {tokens[0]}" )
             sys.exit(1)
 
         # convert source list to an object list
-        final += ' ' + get_objects_list(toolchain._obj_ext, dir[0], new_root )
+        final += ' '.join(matchlib[1])
 
         # Nothing left to parse
         if ( len(tokens) == 1 ):

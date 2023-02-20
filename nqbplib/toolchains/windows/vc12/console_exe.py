@@ -17,7 +17,6 @@ class ToolChain( base.ToolChain ):
     def __init__( self, exename, prjdir, build_variants, default_variant='release' ):
         base.ToolChain.__init__( self, exename, prjdir, build_variants, default_variant )
         
-        
         # Tools
         self._ccname    = 'VC++ 12, 32bit (Visual Studio 2013)'
         self._cc        = 'cl'  
@@ -26,7 +25,7 @@ class ToolChain( base.ToolChain ):
         self._ar        = 'lib'   
         self._objcpy    = ''
         self._rm        = 'cmd /c erase /F /S /Q'
-        self._rm_suffix = '2>nul'
+        self._rm_suffix = '1>nul 2>nul'
         self._obj_ext   = 'obj'   
         self._asm_ext   = 's'    
         
@@ -49,7 +48,7 @@ class ToolChain( base.ToolChain ):
         self._linker_libgroup_end   = ''
         
         self._final_output_name = exename
-        self._link_output       = '/OUT:' + exename
+        self._link_output       = '/OUT:'
         
         
         #
@@ -67,10 +66,10 @@ class ToolChain( base.ToolChain ):
         #
 
         # Orignal VC12 flags
-        # self._base_release.cflags    = '/FS /nologo  /D "_CRT_SECURE_NO_WARNINGS" /D "_CONSOLE" /D "_MBCS" /Gm /Zi /FD /D "WIN32" /D "WIN32_LEAN_AND_MEAN" /c /D "BUILD_TIME_UTC={:d}"'.format(self._build_time_utc)
+        # self._base_release.cflags    = '/FS /nologo  /D "_CRT_SECURE_NO_WARNINGS" /D "_CONSOLE" /D "_MBCS" /Gm /Zi /FD /D "WIN32" /D "WIN32_LEAN_AND_MEAN" /c '.format(self._build_time_utc)
 
         # Flags compatible with Visual Studio 19
-        self._base_release.cflags    = '/FS /nologo  /D "_CRT_SECURE_NO_WARNINGS" /D "_CONSOLE" /D "_MBCS" /Zi /FD /D "WIN32" /D "WIN32_LEAN_AND_MEAN" /c /D "BUILD_TIME_UTC={:d}"'.format(self._build_time_utc)
+        self._base_release.cflags    = '/FS /nologo  /D "_CRT_SECURE_NO_WARNINGS" /D "_CONSOLE" /D "_MBCS" /Zi /FD /D "WIN32" /D "WIN32_LEAN_AND_MEAN" /c'
         self._base_release.linkflags = '/nologo /subsystem:console /pdb:{}.pdb /machine:X86'.format( os.path.splitext(exename)[0] )
         self._base_release.linklibs  = '' #kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib'
         
@@ -107,3 +106,13 @@ class ToolChain( base.ToolChain ):
         #self._bld_variants['xyz']['optimized'] = self._optimized_xyz
         #self._bld_variants['xyz']['debug']     = self._debug_xyz
 
+    #-----------------------------------------------------
+    def _build_compile_rule( self ):
+        # TODO: Replace with default gcc version
+        self._ninja_writer.variable( 'msvc_deps_prefix', 'Note: including file:' )
+        self._ninja_writer.rule( 
+            name = 'compile', 
+            command = f'$cc /showIncludes /D "BUILD_TIME_UTC=$buildtime" $ccopts $in /Fo: $out', 
+            description = "Compiling: $in", 
+            deps = 'msvc' )
+        self._ninja_writer.newline()
