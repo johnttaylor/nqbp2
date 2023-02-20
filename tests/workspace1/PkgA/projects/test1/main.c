@@ -2,9 +2,9 @@
 #include "bob/your/uncle/hello.h"
 
 int main( void )
-	{
-	hello_world();
-	my_uncle();
-	return 0;
-	}
+{
+    hello_world();
+    my_uncle();
+    return 0;
+}
 

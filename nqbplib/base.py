@@ -118,14 +118,18 @@ class ToolChain:
         self._cflag_symvalue_delimiter   = ''
         self._asmflag_symvalue_delimiter = ''
         self._printer                    = None
-        
+        self._ninja_writer               = None
+
         # Tools
-        self._ccname   = 'Generic GCC'
-        self._cc       = 'gcc'  
-        self._ld       = 'gcc'  
-        self._asm      = 'as'   
-        self._ar       = 'ar'   
-        self._objcpy   = 'objcpy'
+        self._ccname    = 'Generic GCC'
+        self._cc        = 'gcc'  
+        self._ld        = 'gcc'  
+        self._asm       = 'as'   
+        self._ar        = 'ar'   
+        self._objcpy    = 'objcpy'
+        self._rm        = 'rm -rf'
+        self._rm_suffix = ''
+
         
         self._obj_ext  = 'o'    
         self._asm_ext  = 's'    
@@ -135,14 +139,15 @@ class ToolChain:
         
         self._validate_cc_options = '-v'
         
-        self._clean_list     = ['o', 'd', 'lst', 'txt', 'map', 'obj', 'idb', 'pdb', 'out', 'pyc', NQBP_TEMP_EXT(), 'gcda', 'gcov', 'gcno', 'tmp' ]
+        self._clean_list     = ['ninja', 'ninja_deps', 'ninja_log', 'o', 'd', 'lst', 'txt', 'map', 'obj', 'idb', 'pdb', 'out', 'pyc', NQBP_TEMP_EXT(), 'gcda', 'gcov', 'gcno', 'tmp' ]
         self._clean_pkg_dirs = [ 'src' ]
         self._clean_ext_dirs = [ NQBP_WRKPKGS_DIRNAME() ]
         self._clean_abs_dirs = [ '__abs' ]
  
         self._ar_library_name = 'library.a'
-        self._ar_options      = 'rc ' + self._ar_library_name
-        
+        self._ar_options      = ''
+        self._ar_out          = 'rc '
+
         self._link_lib_prefix       = ''
         self._linker_libgroup_start = '-Wl,--start-group'
         self._linker_libgroup_end   = '-Wl,--end-group'
@@ -193,6 +198,10 @@ class ToolChain:
     def set_printer(self, printer):
         self._printer = printer
         
+    def set_ninja_writer(self, writer):
+        self._ninja_writer = writer
+        
+
     #--------------------------------------------------------------------------
     def get_default_variant(self):
         return self._bld
@@ -357,32 +366,23 @@ class ToolChain:
             utils.create_working_libdirs( self._printer, inf, arguments, self.libdirs, self.libnames, 'local', bld_var )  
             inf.close()
 
+            # Start the Ninja file
+            self._start_ninja_file();
+
     #--------------------------------------------------------------------------
-    def ar( self, arguments ):
-        # NOTE: Assumes archive is to be built in the current working dir
-        self._printer.output("=" )
-        self._printer.output("= Archiving: {}".format( self._ar_library_name) )
-        
-        # remove existing archive
-        utils.delete_file( self._ar_library_name )
-        
-        # Get all object files
-        objs = utils.dir_list_filter_by_ext( ".", [self._obj_ext], derivedDir=True )
-       
-        # build archive string
-        cmd = self._ar + ' ' + self._ar_options
-        for o in objs:
-            cmd = cmd + ' ' + o
-            
-        # run command            
-        if ( arguments['-v'] ):
-            self._printer.output( cmd )
-        if (utils.run_shell(self._printer, cmd) ):
-            self._printer.output("=")
-            self._printer.output("= Build Failed: archiver/librarian error")
-            self._printer.output("=")
-            sys.exit(1)
-        
+    def ar( self, arguments, objfiles, relative_objpath ):
+
+        # Create output filename
+        outputname = utils.strip_drive_letter( os.path.join( NQBP_PRJ_DIR(), relative_objpath, self._ar_library_name ) ) 
+      
+        # Generate ninja build statement
+        self._ninja_writer.build( 
+            outputs = outputname,
+            rule = 'ar',
+            inputs = objfiles,
+            variables = {"aropts":self._ar_options, "arout":self._ar_out} )
+        self._ninja_writer.newline()
+
                    
     #--------------------------------------------------------------------------
     def validate_cc( self ):
@@ -397,16 +397,15 @@ class ToolChain:
         return r
 
     #--------------------------------------------------------------------------
-    def cc( self, arguments, fullname ):
+    def cc( self, arguments, fullname, relative_objpath ):
     
         # parse incoming name into its base
         basename = os.path.splitext( os.path.basename( fullname ) )[0]
         
         # construct compiler/assembler command
-        cc_base = ' {} {} {} '.format( self._cc,
-                                     self._all_opts.cflags,
+        cc_base = '{} {} '.format( self._all_opts.cflags,
                                      self._all_opts.inc
-                                   )
+                                  )
         cc = cc_base + self._all_opts.c_only_flags
 
         if ( fullname.endswith('.c') ):
@@ -425,26 +424,21 @@ class ToolChain:
         # Do any substitution of the 'ME_xxx' values
         cc = cc.replace( 'ME_CC_BASE_FILENAME', basename )
         
-
         # ensure correct directory separator                                
         full_fname = utils.standardize_dir_sep( fullname )
 
-        cc += ' ' + full_fname
-        
-        # Output Progress...
-        if ( self._echo_cc ):
-            self._printer.output("= Compiling: " + os.path.basename(fullname) )
-        if ( arguments['-v'] ):
-            self._printer.output( cc )
-        
-        # do the compile
-        if ( utils.run_shell(self._printer, cc) ):
-            self._printer.output("=")
-            self._printer.output("= Build Failed: compiler error")
-            self._printer.output("=")
-            sys.exit(1)
+        # Create output file name
+        outputname = utils.strip_drive_letter( os.path.join( NQBP_PRJ_DIR(), relative_objpath, basename ) ) + '.' +  self._obj_ext
 
+        # Generate ninja build statement
+        self._ninja_writer.build( 
+            outputs = outputname,
+            rule = 'compile',
+            inputs = full_fname,
+            variables = {"ccopts":cc} )
+        self._ninja_writer.newline()
 
+        return outputname
 
     #--------------------------------------------------------------------------
     #
@@ -467,51 +461,90 @@ class ToolChain:
 
     #
     def link( self, arguments, libdirs, local_external_setting, variant ):
-
-        # Output Progress...
-        self._printer.output( "=====================" )
-        self._printer.output("= Linking..." )
-
-        # create build variant output
-        vardir = '_' + self._bld
-        utils.create_subdirectory( self._printer, '.', vardir )
-        utils.push_dir( vardir )
-        
-        # construct link command
-        libs = self._build_library_list( libdirs )
-        startgroup = self._linker_libgroup_start if libs != '' else ''
-        endgroup   = self._linker_libgroup_end   if libs != '' else ''
-        ld = '{} {} {} {} {} {} {} {} {} {} {}'.format( 
-                                            self._ld,
-                                            self._link_output,
-                                            self._all_opts.firstobjs,
-                                            self._build_prjobjs_list(),
-                                            self._all_opts.linkflags,
-                                            self._all_opts.linkscript,
-                                            startgroup,
-                                            libs,
-                                            endgroup,
-                                            self._all_opts.linklibs,
-                                            self._all_opts.lastobjs
-                                            )
-                                          
-        # do the compile
-        if ( arguments['-v'] ):
-            self._printer.output( ld )
-        if ( utils.run_shell(self._printer, ld) ):
-            self._printer.output("=")
-            self._printer.output("= Build Failed: linker error")
-            self._printer.output("=")
-            sys.exit(1)
-
-        # Return to project dir
-        utils.pop_dir()
+        pass
+        ## Output Progress...
+        #self._printer.output( "=====================" )
+        #self._printer.output("= Linking..." )
+        #
+        ## create build variant output
+        #vardir = '_' + self._bld
+        #utils.create_subdirectory( self._printer, '.', vardir )
+        #utils.push_dir( vardir )
+        #
+        ## construct link command
+        #libs = self._build_library_list( libdirs )
+        #startgroup = self._linker_libgroup_start if libs != '' else ''
+        #endgroup   = self._linker_libgroup_end   if libs != '' else ''
+        #ld = '{} {} {} {} {} {} {} {} {} {} {}'.format( 
+        #                                    self._ld,
+        #                                    self._link_output,
+        #                                    self._all_opts.firstobjs,
+        #                                    self._build_prjobjs_list(),
+        #                                    self._all_opts.linkflags,
+        #                                    self._all_opts.linkscript,
+        #                                    startgroup,
+        #                                    libs,
+        #                                    endgroup,
+        #                                    self._all_opts.linklibs,
+        #                                    self._all_opts.lastobjs
+        #                                    )
+        #                                  
+        ## do the compile
+        #if ( arguments['-v'] ):
+        #    self._printer.output( ld )
+        #if ( utils.run_shell(self._printer, ld) ):
+        #    self._printer.output("=")
+        #    self._printer.output("= Build Failed: linker error")
+        #    self._printer.output("=")
+        #    sys.exit(1)
+        #
+        ## Return to project dir
+        #utils.pop_dir()
         
         
     #==========================================================================
     # Private Methods
     #==========================================================================
     
+    #--------------------------------------------------------------------------
+    def _start_ninja_file( self ):
+        self._ninja_writer.comment( "Project Build" )
+        self._ninja_writer.comment( "This file is auto generated by nqbp.py" )
+        self._ninja_writer.newline()
+        self._ninja_writer.variable( "ninja_required_version", "1.3" )
+        self._ninja_writer.newline()
+        self._ninja_writer.variable( 'cc', f"{self._cc}" )     
+        self._ninja_writer.variable( 'ld', f"{self._ld }" )      
+        self._ninja_writer.variable( 'asm', f"{self._asm}" )    
+        self._ninja_writer.variable( 'ar',  f"{self._ar}" )      
+        self._ninja_writer.variable( 'objcpy', f"{self._objcpy}" )
+        self._ninja_writer.variable( 'rm', f"{self._rm}" )
+        self._ninja_writer.variable( 'rm_suffix', f"{self._rm_suffix}" )
+        self._ninja_writer.newline()
+        self._build_compile_rule()
+        self._ninja_writer.newline()
+        self._build_ar_rule()
+        self._ninja_writer.newline()
+        self._ninja_writer.newline()
+
+    def _build_compile_rule( self ):
+        # TODO: Replace with default gcc version
+        self._ninja_writer.variable( 'msvc_deps_prefix', 'Note: including file:' )
+        self._ninja_writer.rule( 
+            name = 'compile', 
+            command = "$cc $ccopts $in /Fo: $out", 
+            description = "Compiling: $in", 
+            deps = 'msvc' )
+        self._ninja_writer.newline()
+
+    def _build_ar_rule( self ):
+        # TODO: Replace with default gcc version
+        self._ninja_writer.rule( 
+            name = 'ar', 
+            command = "$rm $out $rm_suffix && $ar ${aropts} ${arout}${out} $in", 
+            description = "Archiving Directory: $out" )
+        self._ninja_writer.newline()
+        
     #--------------------------------------------------------------------------
     def _format_custom_c_define( self, sym ):
         return self._cflag_symdef   + self._cflag_symvalue_delimiter   + sym + self._cflag_symvalue_delimiter + ' '

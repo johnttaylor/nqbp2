@@ -255,23 +255,8 @@ def create_working_libdirs( printer, inf, arguments, libdirs, libnames, local_ex
             continue               
 
         # output the line
-        if ( arguments['-p'] and entry == 'xpkg' ):
-            pass
-        elif ( arguments['-x'] and entry != 'xpkg' ):
-            pass
-        elif ( arguments['--noabs'] and entry == 'absolute' ):
-            pass
-        elif ( arguments['-q'] != None and not arguments['-q'] in line ):
-            pass
-        elif ( arguments['-Q'] != None and re.search( arguments['-Q'], line ) == None ):
-            pass
-        elif ( arguments['-c'] != None and arguments['-c'] in line ):
-            pass
-        elif ( arguments['-C'] != None and re.search( arguments['-C'], line ) != None ):
-            pass
-        else:
-            libdirs.append( ((line, srctype, srclist), entry) )
-            libnames.append( line )
+        libdirs.append( ((line, srctype, srclist), entry) )
+        libnames.append( line )
 
 
     # Check for duplicates (Note: Duplicates can/will fail a build when performing parallel builds)
@@ -481,6 +466,12 @@ def delete_file( fname ):
 #-----------------------------------------------------------------------------
 def standardize_dir_sep( pathinfo ):
     return pathinfo.replace( '/', os.sep ).replace( '\\', os.sep )
+
+def strip_drive_letter( path ):
+    r = path.split( ":", 1 )
+    if ( len(r) == 1 ):
+        return r
+    return r[1]
 
 def push_dir( newDir ):
     global _dirstack

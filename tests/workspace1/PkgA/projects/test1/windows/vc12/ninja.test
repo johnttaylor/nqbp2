@@ -1,0 +1,55 @@
+# build.ninja
+
+ninja_required_version = 1.3
+
+builddir = .
+pkgroot  = \_workspaces\zoe\nqbp2\tests\workspace1\PkgA
+cxx      = cl
+ar       = lib
+rm       = del
+linker   = link
+exe      = $builddir/_win32/a.exe
+
+includes = -I. -I\_workspaces\zoe\nqbp2\tests\workspace1\PkgA\src  -IC:\_workspaces\zoe\nqbp2\tests\workspace1\PkgA\projects\test1\windows\vc12 -I\_workspaces\zoe\nqbp2\tests\workspace1\PkgA\xsrc
+cflags   = /W3 /WX /EHsc /FS /nologo  /D "_CRT_SECURE_NO_WARNINGS" /D "_CONSOLE" /D "_MBCS" /Zi /FD /D "WIN32" /D "WIN32_LEAN_AND_MEAN" /c /D "BUILD_TIME_UTC=1676837543" /D BUILD_VARIANT_WIN32 /D "BUILD_NUMBER=0"  /D "NDEBUG" /O2
+lflags   = /nologo /subsystem:console /pdb:a.pdb /machine:X86 /nologo /subsystem:console /pdb:a.pdb /machine:X86
+
+msvc_deps_prefix = Note: including file:
+rule compile
+  command = $cxx /showIncludes $cflags $includes $in /Fo: $out
+  description = Building C file $in
+  deps = msvc
+
+rule ar
+  command = cmd /c $rm $out 2>nul && $ar /NOLOGO /OUT:$out $in
+  description = Creating archive $out
+
+rule link
+  command = $linker /OUT:$out $in
+  description = Linking $out
+    
+#rule ar
+#  command = $rm $out && $ar crs $out $in
+#  description = Creating archive $out
+#
+#rule clean
+#  command = $rm $builddir
+#  description = Cleaning directory $builddir
+#
+#build clean: clean
+
+# Build source dirs
+build $builddir\src\bob\your\uncle\hello.obj:       compile $pkgroot\src\bob\your\uncle\hello.c
+build $builddir\src\bob\hello.obj:                  compile $pkgroot\src\bob\hello.c
+
+# Build project files
+build $builddir\main.obj:                           compile $builddir\..\..\main.c
+
+# Build src libraries
+build $builddir\src\bob\your\uncle\library.lib:     ar $builddir\src\bob\your\uncle\hello.obj
+build $builddir\src\bob\library.lib:                ar $builddir\src\bob\hello.obj
+
+# Link everything
+build $exe:                                         link $builddir\src\bob\hello.obj $builddir\main.obj  $builddir\src\bob\your\uncle\library.lib $builddir\src\bob\library.lib
+
+default $exe

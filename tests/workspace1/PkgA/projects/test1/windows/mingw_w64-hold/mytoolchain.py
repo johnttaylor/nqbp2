@@ -22,6 +22,8 @@
 
 # get definition of the Options strcuture
 from nqbplib.base import BuildValues
+from nqbplib.my_globals import NQBP_PRE_PROCESS_SCRIPT
+from nqbplib.my_globals import NQBP_PRE_PROCESS_SCRIPT_ARGS
 
 
 #===================================================
@@ -30,6 +32,9 @@ from nqbplib.base import BuildValues
 
 # Set the name for the final output item
 FINAL_OUTPUT_NAME = 'a.exe'
+
+NQBP_PRE_PROCESS_SCRIPT( "example_preprocessing_script.py" )  
+NQBP_PRE_PROCESS_SCRIPT_ARGS("mingw_64")    
 
 #
 # For build config/variant: "Release"
@@ -48,6 +53,10 @@ debug_release = BuildValues()       # Do NOT comment out this line
 debug_release.cflags = '-D_MY_APP_DEBUG_SWITCH_'
 
 
+base_xyz     = BuildValues()
+optimzed_xyz = BuildValues()
+debug_xyz    = BuildValues()
+base_xyz.cflags = '-D_XYZ_BUILD_VARIANT'
 
 
 #-------------------------------------------------
@@ -63,16 +72,16 @@ release_opts = { 'user_base':base_release,
                
                
 # Add new dictionary of for new build configuraiton options
-#xyz_opts = { 'user_base':base_xyz, 
-#             'user_optimized':optimzed_xyz, 
-#             'user_debug':debug_xyz
-#           }
+xyz_opts = { 'user_base':base_xyz, 
+             'user_optimized':optimzed_xyz, 
+             'user_debug':debug_xyz
+           }
   
         
 # Add new variant option dictionary to # dictionary of 
 # build varaints
 build_variants = { 'release':release_opts,
-#                  'xyz':xyz_opts,
+                   'xyz':xyz_opts,
                  }    
 
 #---------------------------------------------------

@@ -19,15 +19,16 @@ class ToolChain( base.ToolChain ):
         
         
         # Tools
-        self._ccname   = 'VC++ 12, 32bit (Visual Studio 2013)'
-        self._cc       = 'cl'  
-        self._ld       = 'link'  
-        self._asm      = 'masm'   
-        self._ar       = 'lib'   
-        self._objcpy   = ''
-        
-        self._obj_ext  = 'obj'    
-        self._asm_ext  = 's'    
+        self._ccname    = 'VC++ 12, 32bit (Visual Studio 2013)'
+        self._cc        = 'cl'  
+        self._ld        = 'link'  
+        self._asm       = 'masm'   
+        self._ar        = 'lib'   
+        self._objcpy    = ''
+        self._rm        = 'cmd /c erase /F /S /Q'
+        self._rm_suffix = '2>nul'
+        self._obj_ext   = 'obj'   
+        self._asm_ext   = 's'    
         
         self._echo_cc  = False 
         self._echo_asm = True
@@ -40,7 +41,8 @@ class ToolChain( base.ToolChain ):
         self._asmflag_symvalue_delimiter = '"'
 
         self._ar_library_name = 'library.lib'
-        self._ar_options      = '/NOLOGO /OUT:' + self._ar_library_name
+        self._ar_options      = '/NOLOGO'
+        self._ar_out          = '/OUT:'
         
         self._link_lib_prefix       = ''
         self._linker_libgroup_start = ''
