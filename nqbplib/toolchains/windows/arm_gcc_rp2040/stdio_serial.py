@@ -202,7 +202,7 @@ class ToolChain( base.ToolChain ):
                outputs    = self._final_output_name + ".uf2",
                rule       = 'generic_cmd',
                inputs     = self._final_output_name + ".elf",
-               variables  = {"generic_cmd":f'{self._elf2uf2}'} )
+               variables  = {"generic_cmd":self._elf2uf2} )
         self._ninja_writer.newline()
 
         # Run the 'size' command
@@ -215,7 +215,7 @@ class ToolChain( base.ToolChain ):
         return None
  
     def finalize( self, arguments, builtlibs, objfiles, local_external_setting, linkout=None ):
-        self._ninja_writer.default( [self._final_output_name + ".uf2", "dummy_printsize_final"] )
+        self._ninja_writer.default( [self._final_output_name + ".uf2", self._final_output_name + ".dis", "bs2_default.dis", "dummy_printsize_final"] )
 
     #--------------------------------------------------------------------------
     def get_asm_extensions(self):

@@ -28,13 +28,16 @@ class ToolChain( base.ToolChain ):
         self._asm_ext  = 'asm'    
         self._asm_ext2 = 'S'   
 
+        self._shell      = 'cmd.exe /C'
+        self._rm         = 'del /f /q'
+
         # Cache potential error for environment variables not set
         self._env_error = env_error;
 
         self._clean_pkg_dirs.extend( ['arduino', '_arduino'] )
 
         # set the name of the linker output (not the final output)
-        self._link_output = '-o ' + exename + '.elf'
+        self._link_output = '-o'
 
         # Define paths
         samd_src_path         = os.path.join( my_globals.NQBP_WORK_ROOT(), env_support, 'arduino', 'hardware', 'samd', env_bsp_ver )
@@ -72,79 +75,30 @@ class ToolChain( base.ToolChain ):
         self._base_release.linklibs  = ' -Wl,--start-group -lm -lstdc++ -Wl,--end-group'
         self._base_release.linkflags = common_flags + ' -Wl,--gc-sections -save-temps -L{} -L{} -Wl,-Map,{}.map  -Wl,--unresolved-symbols=report-all -Wl,--warn-common -Wl,--warn-section-align -Wl,--cref -Wl,--check-sections'.format(linker_search_path1, linker_search_path2, exename)
 
-        self._ar_options             = 'rcs ' + self._ar_library_name
-
-
-        #
-        # Build Config/Variant: "xyz"
-        #
-       
-        # Common/base options, flags, etc.
-        
-        #self._base_xyz = self._base_release.copy()
-        #self._base_xyz.cflags  = '-c -DBUILD_TIME_UTC={:d}'.format(self._build_time_utc)
-        
-        # Optimized options, flags, etc.
-        #self._optimized_xyz = self._optimized_release.copy()
-        
-        # Debug options, flags, etc.
-        #self._debug_xyz = self._debug_release.copy()
-        
-        # Create new build variant - but ONLY if it DOES NOT already exist
-        #if ( not self._bld_variants.has_key('xyz') ):
-        #    self._bld_variants['xyz'] = { 'nop':'none' }
-            
-        # Add to dictionary of options for the 'xyz' build variant
-        #self._bld_variants['xyz']['base']      = self._base_xyz
-        #self._bld_variants['xyz']['optimized'] = self._optimized_xyz
-        #self._bld_variants['xyz']['debug']     = self._debug_xyz
-   #--------------------------------------------------------------------------
+    #--------------------------------------------------------------------------
     def link( self, arguments, inf, local_external_setting, variant ):
         # Run the linker
-        base.ToolChain.link(self, arguments, inf, local_external_setting, variant )
+        base.ToolChain.link(self, arguments, inf, local_external_setting, variant, outname=self._final_output_name + ".elf" )
 
-        # switch to the build variant output directory
-        vardir = '_' + self._bld
-        utils.push_dir( vardir )
+        # Generate the .BIN file
+        self._ninja_writer.build(
+               outputs    = self._final_output_name + ".bin",
+               rule       = 'objcpy_rule',
+               inputs     = self._final_output_name + ".elf" ,
+               variables  = {"objcpy_opts":'-O binary'} )
+        self._ninja_writer.newline()
 
-        # Output Banner message
-        self._printer.output("= Creating BIN file ..." )
-
-        # construct objcopy command
-        options = '-O binary '
-        objcpy = '{} {} {} {}'.format(  self._objcpy,
-                                        options,
-                                        self._final_output_name + '.elf',
-                                        self._final_output_name + '.bin'
-                                     )
-                                          
-        # Generate the .HEX file
-        if ( arguments['-v'] ):
-            self._printer.output( objcpy )
-        if ( utils.run_shell(self._printer, objcpy) ):
-            self._printer.output("=")
-            self._printer.output("= Build Failed: Failed to create .BIN file from the .ELF" )
-            self._printer.output("=")
-            sys.exit(1)
-
-
-        # Output Banner message
-        self._printer.output("= Running Print Size..." )
-
-        # construct zip command
-        options = '--format=berkeley'
-        printsz = '{} {} {}'.format( self._printsz,
-                                        options,
-                                        self._final_output_name + '.elf'
-                                     )
-                                          
         # Run the 'size' command
-        if ( arguments['-v'] ):
-            self._printer.output( printsz )
-        utils.run_shell(self._printer, printsz)
+        self._ninja_writer.rule( 
+            name = 'print_size', 
+            command = f'$shell {self._printsz} --format=berkeley {self._final_output_name+".elf"}', 
+            description = "Generic Command: $cmd" )
+        self._create_always_build_statments( "print_size", "dummy_printsize", impilicit_list=self._final_output_name+ ".bin" )
+ 
 
-        # Return to project dir
-        utils.pop_dir()
+    def finalize( self, arguments, builtlibs, objfiles, local_external_setting, linkout=None ):
+        self._ninja_writer.default( [self._final_output_name + ".bin", "dummy_printsize_final"] )
+
         
 
     #--------------------------------------------------------------------------
@@ -158,3 +112,13 @@ class ToolChain( base.ToolChain ):
             exit( "ERROR: The {} environment variable is not set.".format( self._env_error) )
         
         return base.ToolChain.validate_cc(self)
+
+
+    #--------------------------------------------------------------------------
+    # Because Windoze is pain!
+    def _build_ar_rule( self ):
+        self._ninja_writer.rule( 
+            name = 'ar', 
+            command = 'cmd.exe /C "$rm $out 1>nul 2>nul && $ar ${aropts} ${arout}${out} $in"', 
+            description = "Archiving Directory: $out" )
+        self._ninja_writer.newline()

@@ -24,11 +24,15 @@ class ToolChain( base.ToolChain ):
         self._ar       = os.path.join( env_tools, 'tools', 'gcc-arm-none-eabi', env_cc_ver, 'bin', 'arm-none-eabi-ar' )
         self._objcpy   = os.path.join( env_tools, 'tools', 'gcc-arm-none-eabi', env_cc_ver, 'bin', 'arm-none-eabi-objcopy' )
         self._nrfutil  = os.path.join( env_tools, 'hardware', 'nrf52', env_bsp_ver, 'tools', env_nfr_utils, 'binaries', 'win32', 'nrfutil.exe' )
+        self._printsz  = os.path.join( env_tools, 'tools', 'gcc-arm-none-eabi', env_cc_ver, 'bin', 'arm-none-eabi-size' )
 
         self._clean_pkg_dirs.extend( ['arduino', '_arduino'] )
         
         self._asm_ext  = 'asm'    
         self._asm_ext2 = 'S'   
+
+        self._shell      = 'cmd.exe /C'
+        self._rm         = 'del /f /q'
 
         # Cache potential error for environment variables not set
         self._env_error = env_error;
@@ -36,7 +40,7 @@ class ToolChain( base.ToolChain ):
         self._clean_list.extend( ('d') )
 
         # set the name of the linker output (not the final output)
-        self._link_output = '-o ' + exename + '.elf'
+        self._link_output = '-o'
 
         # Define paths
         nrf52_src_path         = os.path.join( my_globals.NQBP_WORK_ROOT(), env_support, 'arduino', 'hardware', 'nrf52', env_bsp_ver )
@@ -86,7 +90,7 @@ class ToolChain( base.ToolChain ):
         self._base_release.linklibs  = ' -Wl,--start-group -lm -Wl,--end-group'
         self._base_release.linkflags = common_flags + ' -Wl,--gc-sections -save-temps -L{} -L{} -Tfeather52_s132.ld -Wl,-Map,{}.map  -Wl,--unresolved-symbols=report-all -Wl,--warn-common -Wl,--warn-section-align --specs=nano.specs --specs=nosys.specs -Wl,--cref -Wl,--check-sections'.format(linker_search_path1, linker_search_path2, exename)
 
-        self._ar_options      = 'rcs ' + self._ar_library_name
+        self._ar_options      = 'rcs'
 
         self._debug_release.cflags    = self._debug_release.cflags + ' -DCFG_DEBUG=2'
         self._debug_release.asmflags  = self._debug_release.asmflags + ' -DCFG_DEBUG=2'
@@ -120,57 +124,35 @@ class ToolChain( base.ToolChain ):
         #self._bld_variants['xyz']['debug']     = self._debug_xyz
    #--------------------------------------------------------------------------
     def link( self, arguments, inf, local_external_setting, variant ):
-        # Run the linker
-        base.ToolChain.link(self, arguments, inf, local_external_setting, variant )
+       # Run the linker
+        base.ToolChain.link(self, arguments, inf, local_external_setting, variant, outname=self._final_output_name + ".elf" )
 
-        # switch to the build variant output directory
-        vardir = '_' + self._bld
-        utils.push_dir( vardir )
-
-        # Output Banner message
-        self._printer.output("= Creating HEX file ..." )
-
-        # construct objcopy command
-        options = '-O ihex '
-        objcpy = '{} {} {} {}'.format(  self._objcpy,
-                                        options,
-                                        self._final_output_name + '.elf',
-                                        self._final_output_name + '.hex'
-                                     )
-                                          
         # Generate the .HEX file
-        if ( arguments['-v'] ):
-            self._printer.output( objcpy )
-        if ( utils.run_shell(self._printer, objcpy) ):
-            self._printer.output("=")
-            self._printer.output("= Build Failed: Failed to create .HEX file from the .ELF" )
-            self._printer.output("=")
-            sys.exit(1)
+        self._ninja_writer.build(
+               outputs    = self._final_output_name + ".hex",
+               rule       = 'objcpy_rule',
+               inputs     = self._final_output_name + ".elf" ,
+               variables  = {"objcpy_opts":'-O ihex'} )
+        self._ninja_writer.newline()
 
-        # Output Banner message
-        self._printer.output("= Creating the download (.ZIP) file ..." )
-
-        # construct zip command
-        options = 'dfu genpkg --dev-type 0x0052 --application'
-        nrfutil = '{} {} {} {}'.format(  self._nrfutil,
-                                        options,
-                                        self._final_output_name + '.hex',
-                                        self._final_output_name + '.zip'
-                                     )
-                                          
         # Generate the download file (aka the ZIP file)
-        if ( arguments['-v'] ):
-            self._printer.output( nrfutil )
-        if ( utils.run_shell(self._printer, nrfutil) ):
-            self._printer.output("=")
-            self._printer.output("= Build Failed: Failed to create .ZIP file from the .HEX" )
-            self._printer.output("=")
-            sys.exit(1)
+        self._ninja_writer.build(
+               outputs    = self._final_output_name + ".zip",
+               rule       = 'generic_cmd',
+               inputs     = self._final_output_name + ".hex",
+               variables  = {"generic_cmd":self._nrfutil, "generic_cmd_opts":'dfu genpkg --dev-type 0x0052 --application'} )
+        self._ninja_writer.newline()
 
+        # Run the 'size' command
+        self._ninja_writer.rule( 
+            name = 'print_size', 
+            command = f'$shell {self._printsz} --format=berkeley {self._final_output_name+".elf"}', 
+            description = "Generic Command: $cmd" )
+        self._create_always_build_statments( "print_size", "dummy_printsize", impilicit_list=self._final_output_name+ ".bin" )
 
-        # Return to project dir
-        utils.pop_dir()
-        
+    def finalize( self, arguments, builtlibs, objfiles, local_external_setting, linkout=None ):
+        self._ninja_writer.default( [self._final_output_name + ".zip", "dummy_printsize_final"] )
+       
 
     #--------------------------------------------------------------------------
     def get_asm_extensions(self):
@@ -183,3 +165,13 @@ class ToolChain( base.ToolChain ):
             exit( "ERROR: The {} environment variable is not set.".format( self._env_error) )
         
         return base.ToolChain.validate_cc(self)
+
+
+    #--------------------------------------------------------------------------
+    # Because Windoze is pain!
+    def _build_ar_rule( self ):
+        self._ninja_writer.rule( 
+            name = 'ar', 
+            command = 'cmd.exe /C "$rm $out 1>nul 2>nul && $ar ${aropts} ${arout}${out} $in"', 
+            description = "Archiving Directory: $out" )
+        self._ninja_writer.newline()

@@ -23,9 +23,13 @@ class ToolChain( base.ToolChain ):
         self._ld       = os.path.join( env_tools, env_cc_ver, 'hardware', 'tools', 'avr', 'bin', 'avr-gcc' )
         self._ar       = os.path.join( env_tools, env_cc_ver, 'hardware', 'tools', 'avr', 'bin', 'avr-gcc-ar' )
         self._objcpy   = os.path.join( env_tools, env_cc_ver, 'hardware', 'tools', 'avr', 'bin', 'avr-objcopy' )
+        self._printsz  = os.path.join( env_tools, env_cc_ver, 'hardware', 'tools', 'avr', 'bin', 'avr-size' )
 
         self._asm_ext  = 'asm'    
         self._asm_ext2 = 'S'   
+
+        self._shell      = 'cmd.exe /C'
+        self._rm         = 'del /f /q'
 
         # Cache potential error for environment variables not set
         self._env_error = env_error;
@@ -33,7 +37,7 @@ class ToolChain( base.ToolChain ):
         self._clean_pkg_dirs.extend( ['arduino', '_arduino'] )
 
         # set the name of the linker output (not the final output)
-        self._link_output = '-o ' + exename + '.elf'
+        self._link_output = '-o'
 
         # Define paths
         core_path     = os.path.join(my_globals.NQBP_WORK_ROOT(), env_support, 'arduino', 'hardware', 'avr', env_bsp_ver, 'cores', 'arduino' )
@@ -53,7 +57,7 @@ class ToolChain( base.ToolChain ):
         self._base_release.linklibs      = ' -Wl,--start-group -lm -Wl,--end-group'
         self._base_release.linkflags     = common_flags + link_and_compile_flags + ' -fuse-linker-plugin -Wl,--gc-sections'
 
-        self._ar_options      = 'rcs ' + self._ar_library_name
+        self._ar_options      = 'rcs'
 
         self._debug_release.cflags   = self._debug_release.cflags + ' -DCFG_DEBUG=2'
         self._debug_release.asmflags = self._debug_release.asmflags + ' -DCFG_DEBUG=2'
@@ -63,80 +67,38 @@ class ToolChain( base.ToolChain ):
 
 
 
-        #
-        # Build Config/Variant: "xyz"
-        #
-       
-        # Common/base options, flags, etc.
-        
-        #self._base_xyz = self._base_release.copy()
-        #self._base_xyz.cflags  = '-c -DBUILD_TIME_UTC={:d}'.format(self._build_time_utc)
-        
-        # Optimized options, flags, etc.
-        #self._optimized_xyz = self._optimized_release.copy()
-        
-        # Debug options, flags, etc.
-        #self._debug_xyz = self._debug_release.copy()
-        
-        # Create new build variant - but ONLY if it DOES NOT already exist
-        #if ( not self._bld_variants.has_key('xyz') ):
-        #    self._bld_variants['xyz'] = { 'nop':'none' }
-            
-        # Add to dictionary of options for the 'xyz' build variant
-        #self._bld_variants['xyz']['base']      = self._base_xyz
-        #self._bld_variants['xyz']['optimized'] = self._optimized_xyz
-        #self._bld_variants['xyz']['debug']     = self._debug_xyz
-   #--------------------------------------------------------------------------
+    #--------------------------------------------------------------------------
     def link( self, arguments, inf, local_external_setting, variant ):
         # Run the linker
-        base.ToolChain.link(self, arguments, inf, local_external_setting, variant )
+        base.ToolChain.link(self, arguments, inf, local_external_setting, variant, outname=self._final_output_name + ".elf" )
 
-        # switch to the build variant output directory
-        vardir = '_' + self._bld
-        utils.push_dir( vardir )
+        # Generate the .EEP file
+        self._ninja_writer.build(
+               outputs    = self._final_output_name + ".eep",
+               rule       = 'objcpy_rule',
+               inputs     = self._final_output_name + ".elf" ,
+               variables  = {"objcpy_opts":'-O ihex -j .eeprom --set-section-flags=.eeprom=alloc,load --no-change-warnings --change-section-lma .eeprom=0'} )
+        self._ninja_writer.newline()
 
-        # Output Banner message
-        self._printer.output("= Creating EEPROM (eep) file ..." )
-
-        # construct objcopy command
-        options = '-O ihex -j .eeprom --set-section-flags=.eeprom=alloc,load --no-change-warnings --change-section-lma .eeprom=0'
-        objcpy = '{} {} {} {}'.format(  self._objcpy,
-                                        options,
-                                        self._final_output_name + '.elf',
-                                        self._final_output_name + '.eep'
-                                     )
-                                          
         # Generate the .HEX file
-        if ( arguments['-v'] ):
-            self._printer.output( objcpy )
-        if ( utils.run_shell(self._printer, objcpy) ):
-            self._printer.output("=")
-            self._printer.output("= Build Failed: Failed to create .EEP file from the .ELF" )
-            self._printer.output("=")
-            sys.exit(1)
+        self._ninja_writer.build(
+               outputs    = self._final_output_name + ".hex",
+               rule       = 'objcpy_rule',
+               inputs     = self._final_output_name + ".elf" ,
+               variables  = {"objcpy_opts":'-O ihex -R .eeprom'} )
+        self._ninja_writer.newline()
 
-        # Output Banner message
-        self._printer.output("= Creating HEX file ..." )
+        # Run the 'size' command
+        self._ninja_writer.rule( 
+            name = 'print_size', 
+            command = f'$shell {self._printsz} --format=berkeley {self._final_output_name+".elf"}', 
+            description = "Generic Command: $cmd" )
+        self._create_always_build_statments( "print_size", "dummy_printsize", impilicit_list=self._final_output_name+ ".bin" )
 
-        # construct objcopy command
-        options = '-O ihex -R .eeprom'
-        objcpy = '{} {} {} {}'.format(  self._objcpy,
-                                        options,
-                                        self._final_output_name + '.elf',
-                                        self._final_output_name + '.hex'
-                                     )
-                                          
-        # Generate the .HEX file
-        if ( arguments['-v'] ):
-            self._printer.output( objcpy )
-        if ( utils.run_shell(self._printer, objcpy) ):
-            self._printer.output("=")
-            self._printer.output("= Build Failed: Failed to create .HEX file from the .ELF" )
-            self._printer.output("=")
-            sys.exit(1)
-
-        # Return to project dir
-        utils.pop_dir()
+    
+    def finalize( self, arguments, builtlibs, objfiles, local_external_setting, linkout=None ):
+        self._ninja_writer.default( [self._final_output_name + ".hex", self._final_output_name + ".eep","dummy_printsize_final"] )
+       
         
 
     #--------------------------------------------------------------------------
@@ -150,3 +112,12 @@ class ToolChain( base.ToolChain ):
             exit( "ERROR: The {} environment variable is not set.".format( self._env_error) )
         
         return base.ToolChain.validate_cc(self)
+
+    #--------------------------------------------------------------------------
+    # Because Windoze is pain!
+    def _build_ar_rule( self ):
+        self._ninja_writer.rule( 
+            name = 'ar', 
+            command = 'cmd.exe /C "$rm $out 1>nul 2>nul && $ar ${aropts} ${arout}${out} $in"', 
+            description = "Archiving Directory: $out" )
+        self._ninja_writer.newline()
