@@ -483,6 +483,7 @@ class ToolChain:
         self._ninja_writer.variable( 'asm', f"{self._asm}" )    
         self._ninja_writer.variable( 'ar',  f"{self._ar}" )      
         self._ninja_writer.variable( 'objcpy', f"{self._objcpy}" )
+        self._ninja_writer.variable( 'objdmp', f"{self._objdmp}" )
         self._ninja_writer.variable( 'shell', f"{self._shell}" )
         self._ninja_writer.variable( 'rm', f"{self._rm}" )
         self._ninja_writer.variable( 'buildtime', str(self._build_time_utc) if arguments['--bldtime']  else "0" )

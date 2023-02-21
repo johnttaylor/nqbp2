@@ -159,7 +159,7 @@ class ToolChain( base.ToolChain ):
         self._ninja_writer.build(
                outputs    = 'bs2_default.dis',
                rule       = 'objdmp_2stage_rule',
-               inputs     = 'bs2_default.bin' ,
+               inputs     = 'bs2_default.elf',
                variables  = {"objdmp_opts1":'-h', "objdmp_opts2":'-d'} )
         self._ninja_writer.newline()
         self._ninja_writer.build(
