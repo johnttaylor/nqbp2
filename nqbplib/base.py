@@ -127,8 +127,10 @@ class ToolChain:
         self._asm       = 'as'   
         self._ar        = 'ar'   
         self._objcpy    = 'objcpy'
+        self._objdmp    = 'objdump' 
+        self._printsz   = 'size'
         self._rm        = 'rm -f'
-
+        self._shell     = ''
         
         self._obj_ext  = 'o'    
         self._asm_ext  = 's'    
@@ -376,14 +378,15 @@ class ToolChain:
                                   )
         cc = cc_base + self._all_opts.c_only_flags
 
+        is_cxx = True
         if ( fullname.endswith('.c') ):
             pass
         elif ( fullname.endswith('.cpp') ):
             cc = ' {} {} '.format(cc_base, self._all_opts.cppflags)
         elif ( self.is_asm_file(fullname) ):
-            cc = ' {} {} {} '.format( self._asm,
-                                    self._all_opts.asmflags,
-                                    self._all_opts.asminc
+            is_cxx = False
+            cc = ' {} {} '.format( self._all_opts.asmflags,
+                                      self._all_opts.asminc
                                   )
         else:
             self._printer.output( "ERROR: No rule to compile the file: {}".format( os.path.basename(fullname) ) )
@@ -399,11 +402,19 @@ class ToolChain:
         outputname = os.path.join(relative_objpath, basename ) + '.' +  self._obj_ext
 
         # Generate ninja build statement
-        self._ninja_writer.build( 
-            outputs = outputname,
-            rule = 'compile',
-            inputs = full_fname,
-            variables = {"ccopts":cc} )
+        if ( is_cxx ):
+            self._ninja_writer.build( 
+                outputs = outputname,
+                rule = 'compile',
+                inputs = full_fname,
+                variables = {"ccopts":cc} )
+        else:
+            self._ninja_writer.build( 
+                outputs = outputname,
+                rule = 'assemble',
+                inputs = full_fname,
+                variables = {"asmopts":cc} )
+
         self._ninja_writer.newline()
 
         return outputname
@@ -418,7 +429,10 @@ class ToolChain:
         self._all_opts.lastobjs  = utils.replace_build_dir_symbols(self,  self._all_opts.lastobjs, builtlibs, "." )
 
     #
-    def link( self, arguments, builtlibs, objfiles, local_external_setting):
+    def link( self, arguments, builtlibs, objfiles, local_external_setting, extra_inputs_list=None, outname=None):
+        if ( outname == None ):
+            outname = self._final_output_name
+
         libs = []
         for item in builtlibs:
             libs.append(item[0])
@@ -436,14 +450,22 @@ class ToolChain:
                                             self._all_opts.linklibs,
                                             self._all_opts.lastobjs
                                             )
+        link_inputs = objfiles
+        if ( extra_inputs_list != None ):
+            link_inputs.extend( extra_inputs_list) 
+
         self._ninja_writer.build(
-            outputs    = self._final_output_name,
+            outputs    = outname,
             rule       = 'link',
-            inputs     = objfiles ,
+            inputs     = link_inputs,
             implicit   = libs,
             variables  = {"ldopts":ldopts, "ldout":self._link_output} )
         self._ninja_writer.newline()
         
+        return None
+    
+    def finalize( self, arguments, builtlibs, objfiles, local_external_setting, linkout=None ):
+        self._ninja_writer.default( self._final_output_name )
         
     #==========================================================================
     # Private Methods
@@ -461,14 +483,26 @@ class ToolChain:
         self._ninja_writer.variable( 'asm', f"{self._asm}" )    
         self._ninja_writer.variable( 'ar',  f"{self._ar}" )      
         self._ninja_writer.variable( 'objcpy', f"{self._objcpy}" )
+        self._ninja_writer.variable( 'shell', f"{self._shell}" )
         self._ninja_writer.variable( 'rm', f"{self._rm}" )
         self._ninja_writer.variable( 'buildtime', str(self._build_time_utc) if arguments['--bldtime']  else "0" )
+        self._ninja_writer.variable( 'objdmp_redirect', '>' )
         self._ninja_writer.newline()
         self._build_compile_rule()
+        self._ninja_writer.newline()
+        self._build_assemble_rule()
         self._ninja_writer.newline()
         self._build_ar_rule()
         self._ninja_writer.newline()
         self._build_link_rule()
+        self._ninja_writer.newline()
+        self._build_objcpy_rule()
+        self._ninja_writer.newline()
+        self._build_objdmp_rule()
+        self._ninja_writer.newline()
+        self._build_objdmp_2stage_rule()
+        self._ninja_writer.newline()
+        self._build_generic_rule()
         self._ninja_writer.newline()
         self._ninja_writer.newline()
 
@@ -480,7 +514,14 @@ class ToolChain:
             description = "Compiling: $in", 
             depfile = "$out.d",
             deps = 'gcc' )
-        self._ninja_writer.newline()
+
+    def _build_assemble_rule( self ):
+        self._ninja_writer.rule( 
+            name = 'assemble', 
+            command = f"$asm -MMD -MT $out -MF $out.d {self._asmflag_symdef}BUILD_TIME_UTC=$buildtime $asmopts $in -o $out", 
+            description = "Assembling: $in", 
+            depfile = "$out.d",
+            deps = 'gcc' )
 
     def _build_ar_rule( self ):
         # TODO: Replace with default gcc version
@@ -488,7 +529,6 @@ class ToolChain:
             name = 'ar', 
             command = "$rm $out && $ar ${aropts} ${arout}${out} $in", 
             description = "Archiving Directory: $out" )
-        self._ninja_writer.newline()
         
     def _build_link_rule( self ):
         # TODO: Replace with default gcc version
@@ -496,8 +536,57 @@ class ToolChain:
             name = 'link', 
             command = "$ld ${ldout}${out} ${ldopts}", 
             description = "Linking: $out" )
-        self._ninja_writer.newline()
 
+    def _build_objcpy_rule( self ):
+        self._ninja_writer.rule( 
+            name = 'objcpy_rule', 
+            command = "$objcpy $objcpy_opts $in $out", 
+            description = "Objcpy: $in TO $out" )
+
+    def _build_objdmp_rule( self ):
+        self._ninja_writer.rule( 
+            name = 'objdmp_rule', 
+            command = "$objdmp $objdmp_opts $in > $out", 
+            description = "Objdmp: $in TO $out" )
+
+    def _build_generic_rule( self ):
+        self._ninja_writer.rule( 
+            name = 'generic_cmd', 
+            command = "$shell $generic_cmd $generic_cmd_opts $generic_cmd_opts_in $in $generic_cmd_opts_out $out", 
+            description = "Generic Command: $cmd" )
+
+    def _build_objdmp_2stage_rule( self ):
+        self._ninja_writer.rule( 
+            name = 'objdmp_2stage_rule', 
+            command = "$shell $objdmp $objdmp_opts1 $in > $out && $objdmp $objdmp_opts2 $in >> $out", 
+            description = "Objdmp: $in TO $out" )
+
+    def _create_always_build_statments( self, rule_to_execute, target_basename, impilicit_list=None, order_only_list=None, variables_dict=None ):
+        """ Creates a set of build statement that will force 'rule_to_execute' to
+            ALWAYS be executed when the final 'target name' is specified as
+            dependency to a target.
+            
+            The returned target name is ALWAYS: target_basename + '_final' 
+        """
+        name_final_target = target_basename + '_final'
+        self._ninja_writer.build(
+              outputs    = target_basename + '1',
+              rule       = rule_to_execute,
+              implicit   = impilicit_list,
+              order_only = order_only_list,
+              variables  = variables_dict)
+        self._ninja_writer.build(
+              rule = "phony",
+              inputs = target_basename + '1',
+              outputs  = target_basename + '2' )
+        self._ninja_writer.newline()
+        self._ninja_writer.build(
+            rule = "phony",
+            inputs = target_basename + '2',
+            outputs = name_final_target);
+        
+        return name_final_target
+    
     #--------------------------------------------------------------------------
     def _format_custom_c_define( self, sym ):
         return self._cflag_symdef   + self._cflag_symvalue_delimiter   + sym + self._cflag_symvalue_delimiter + ' '

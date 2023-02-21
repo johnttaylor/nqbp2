@@ -34,11 +34,10 @@ class ToolChain( base.ToolChain ):
         self._pioasm     = os.path.join( pico_root, 'xsrc', 'pico-sdk', 'tools', 'pioasm.exe' )
         self._asm_ext    = 'asm'    
         self._asm_ext2   = 'S'   
-
+        self._shell      = 'cmd.exe /C'
+        self._rm         = 'del /f'
+        
         self._clean_pkg_dirs.extend( ['_pico'] )
-
-        # set the name of the linker output (not the final output)
-        self._link_output = '-o ' + exename + '.elf'
 
         # Define paths
         sdk_src_path = os.path.join( pico_root, 'xsrc', 'pico-sdk', 'src' )
@@ -104,15 +103,13 @@ class ToolChain( base.ToolChain ):
         self._base_release.linkflags    = f' -nostartfiles {mcu} -mthumb -Wl,--build-id=none --specs=nosys.specs -Wl,-z,max-page-size=4096 -fno-rtti -fno-exceptions -fno-unwind-tables -fno-use-cxa-atexit -Wl,--gc-sections {wrapper_funcs} -Wl,--script={linker_script} bs2_default_padded_checksummed.S  -Wl,-Map={exename}.elf.map' 
                                         
         boot_linker_script              = os.path.join( pico_root, 'xsrc', 'pico-sdk', "src", "rp2_common", "boot_stage2", "boot_stage2.ld" )
-        boot_obj                        = r'..\xsrc\pico-sdk\src\rp2_common\boot_stage2\compile_time_choice.o'
-        self._bootloader_link_flags     = f'{mcu} -O3 -DNDEBUG -Wl,--build-id=none --specs=nosys.specs -nostartfiles -Wl,--script={boot_linker_script} -Wl,-Map=bs2_default.elf.map {boot_obj} -o bs2_default.elf'   
+        self._boot_obj                  = r'xsrc\pico-sdk\src\rp2_common\boot_stage2\compile_time_choice.o'
+        self._bootloader_link_flags     = f'{mcu} -O3 -DNDEBUG -Wl,--build-id=none --specs=nosys.specs -nostartfiles -Wl,--script={boot_linker_script} -Wl,-Map=bs2_default.elf.map'   
         
 
         # 
         self._base_release.firstobjs    = r'_BUILT_DIR_.xsrc\pico-sdk\src\rp2_common\pico_standard_link'
 
-
-        self._ar_options                = 'rcs ' + self._ar_library_name
 
         # Optimized options, flags, etc.
         self._optimized_release.linkflags  = self._optimized_release.linkflags + ' -DNDEBUG'
@@ -146,137 +143,90 @@ class ToolChain( base.ToolChain ):
         #self._bld_variants['xyz']['debug']     = self._debug_xyz
    #--------------------------------------------------------------------------
     def link( self, arguments, inf, local_external_setting, variant ):
-        # switch to the build variant output directory
-        vardir = '_' + self._bld
-        utils.create_subdirectory( self._printer, '.', vardir )
-        utils.push_dir( vardir )
-
         # Finish creating the second state boot loader
-        self._printer.output("= Creating Boot2 (aka the second stage bootloader) ..." )
-        bootld = f'{self._ld} {self._bootloader_link_flags}'
-        if ( arguments['-v'] ):
-            self._printer.output( bootld )
-        if ( utils.run_shell(self._printer, bootld) ):
-            self._printer.output("=")
-            self._printer.output("= Build Failed: Failed to link Boot2" )
-            self._printer.output("=")
-            sys.exit(1)
-        objcpy = f'{self._objcpy} -O binary bs2_default.elf bs2_default.bin'
-        if ( arguments['-v'] ):
-            self._printer.output( objcpy )
-        if ( utils.run_shell(self._printer, objcpy) ):
-            self._printer.output("=")
-            self._printer.output("= Build Failed: Failed create the .BIN file for the Boot2" )
-            self._printer.output("=")
-            sys.exit(1)
-        objdmp = f'{self._objdmp} -h bs2_default.elf > bs2_default.dis'
-        if ( arguments['-v'] ):
-            self._printer.output( objdmp )
-        if ( utils.run_shell(self._printer, objdmp) ):
-            self._printer.output("=")
-            self._printer.output("= Build Failed: Failed create the disassembly file for the Boot2" )
-            self._printer.output("=")
-            sys.exit(1)
-        objdmp = f'{self._objdmp} -d bs2_default.elf >> bs2_default.dis'
-        if ( arguments['-v'] ):
-            self._printer.output( objdmp )
-        if ( utils.run_shell(self._printer, objdmp) ):
-            self._printer.output("=")
-            self._printer.output("= Build Failed: Failed create the disassembly file for the Boot2" )
-            self._printer.output("=")
-            sys.exit(1)
-        script = f'{self._pad_chksum} -s 0xffffffff bs2_default.bin bs2_default_padded_checksummed.S'
-        if ( arguments['-v'] ):
-            self._printer.output( script )
-        if ( utils.run_shell(self._printer, script) ):
-            self._printer.output("=")
-            self._printer.output("= Build Failed: Failed create final .S file for Boot2" )
-            self._printer.output("=")
-            sys.exit(1)
-
+        self._ninja_writer.build(
+               outputs    = 'bs2_default.elf',
+               rule       = 'generic_cmd',
+               inputs     = self._boot_obj ,
+               variables  = {"generic_cmd":self._ld, "generic_cmd_opts":self._bootloader_link_flags, "generic_cmd_opts_out":'-o'} )
+        self._ninja_writer.newline()
+        self._ninja_writer.build(
+               outputs    = 'bs2_default.bin',
+               rule       = 'objcpy_rule',
+               inputs     = 'bs2_default.elf' ,
+               variables  = {"objcpy_opts":'-O binary'} )
+        self._ninja_writer.newline()
+        self._ninja_writer.build(
+               outputs    = 'bs2_default.dis',
+               rule       = 'objdmp_2stage_rule',
+               inputs     = 'bs2_default.bin' ,
+               variables  = {"objdmp_opts1":'-h', "objdmp_opts2":'-d'} )
+        self._ninja_writer.newline()
+        self._ninja_writer.build(
+               outputs    = 'bs2_default_padded_checksummed.S',
+               rule       = 'generic_cmd',
+               inputs     = 'bs2_default.bin' ,
+               variables  = {"generic_cmd":f'{self._pad_chksum}', "generic_cmd_opts":"-s 0xffffffff"} )
+        self._ninja_writer.newline()
 
         # Run the linker
-        utils.pop_dir()
-        base.ToolChain.link(self, arguments, inf, local_external_setting, variant )
-
-        # switch to the build variant output directory
-        utils.push_dir( vardir )
+        base.ToolChain.link(self, arguments, inf, local_external_setting, variant, ['bs2_default_padded_checksummed.S'], outname=self._final_output_name + ".elf" )
 
 
-        # Output Banner message
-        self._printer.output("= Creating BIN file ..." )
-
-        # construct objcopy command
-        objcpy = f'{self._objcpy} -O binary {self._final_output_name + ".elf"} {self._final_output_name + ".bin"}'
-                                          
         # Generate the .BIN file
-        if ( arguments['-v'] ):
-            self._printer.output( objcpy )
-        if ( utils.run_shell(self._printer, objcpy) ):
-            self._printer.output("=")
-            self._printer.output("= Build Failed: Failed to create .BIN file from the .ELF" )
-            self._printer.output("=")
-            sys.exit(1)
+        self._ninja_writer.build(
+               outputs    = self._final_output_name + ".bin",
+               rule       = 'objcpy_rule',
+               inputs     = self._final_output_name + ".elf" ,
+               variables  = {"objcpy_opts":'-O binary'} )
+        self._ninja_writer.newline()
 
         # Generate the .HEX file
-        objcpy = f'{self._objcpy} -O ihex {self._final_output_name + ".elf"} {self._final_output_name + ".hex"}'
-        if ( arguments['-v'] ):
-            self._printer.output( objcpy )
-        if ( utils.run_shell(self._printer, objcpy) ):
-            self._printer.output("=")
-            self._printer.output("= Build Failed: Failed to create .HEX file from the .ELF" )
-            self._printer.output("=")
-            sys.exit(1)
-
-        # Generate dissambly file
-        objdmp = f'{self._objdmp} -h {self._final_output_name + ".elf"} > {self._final_output_name + ".dis"}'
-        if ( arguments['-v'] ):
-            self._printer.output( objdmp )
-        if ( utils.run_shell(self._printer, objdmp) ):
-            self._printer.output("=")
-            self._printer.output("= Build Failed: Failed create the disassembly file for the Application" )
-            self._printer.output("=")
-            sys.exit(1)
-        objdmp = f'{self._objdmp} -d {self._final_output_name + ".elf"} >> {self._final_output_name + ".dis"}'
-        if ( arguments['-v'] ):
-            self._printer.output( objdmp )
-        if ( utils.run_shell(self._printer, objdmp) ):
-            self._printer.output("=")
-            self._printer.output("= Build Failed: Failed create the disassembly file for the Application" )
-            self._printer.output("=")
-            sys.exit(1)
+        self._ninja_writer.build(
+               outputs    = self._final_output_name + ".hex",
+               rule       = 'objcpy_rule',
+               inputs     = self._final_output_name + ".elf",
+               variables  = {"objcpy_opts":'-O ihex'} )
+        self._ninja_writer.newline()
+ 
+        # Generate disassembly file
+        self._ninja_writer.build(
+               outputs    = self._final_output_name + ".dis",
+               rule       = 'objdmp_2stage_rule',
+               inputs     = self._final_output_name + ".elf",
+               variables  = {"objdmp_opts1":'-h', "objdmp_opts2":'-d'} )
+        self._ninja_writer.newline()
 
         # Generate the UF2file
-        objcpy = f'{self._elf2uf2} {self._final_output_name + ".elf"} {self._final_output_name + ".uf2"}'
-        if ( arguments['-v'] ):
-            self._printer.output( objcpy )
-        if ( utils.run_shell(self._printer, objcpy) ):
-            self._printer.output("=")
-            self._printer.output("= Build Failed: Failed to create .UF2 file from the .ELF" )
-            self._printer.output("=")
-            sys.exit(1)
+        self._ninja_writer.build(
+               outputs    = self._final_output_name + ".uf2",
+               rule       = 'generic_cmd',
+               inputs     = self._final_output_name + ".elf",
+               variables  = {"generic_cmd":f'{self._elf2uf2}'} )
+        self._ninja_writer.newline()
 
-        # Output Banner message
-        self._printer.output("= Running Print Size..." )
-
-        # construct zip command
-        options = '--format=berkeley'
-        printsz = '{} {} {}'.format( self._printsz,
-                                        options,
-                                        self._final_output_name + '.elf'
-                                     )
-                                          
         # Run the 'size' command
-        if ( arguments['-v'] ):
-            self._printer.output( printsz )
-        utils.run_shell(self._printer, printsz)
-
-        # Return to project dir
-        utils.pop_dir()
-        
+        self._ninja_writer.rule( 
+            name = 'print_size', 
+            command = f'$shell {self._printsz} --format=berkeley {self._final_output_name+ ".elf"}', 
+            description = "Generic Command: $cmd" )
+        self._create_always_build_statments( "print_size", "dummy_printsize", impilicit_list=self._final_output_name+ ".elf" )
+ 
+        return None
+ 
+    def finalize( self, arguments, builtlibs, objfiles, local_external_setting, linkout=None ):
+        self._ninja_writer.default( [self._final_output_name + ".uf2", "dummy_printsize_final"] )
 
     #--------------------------------------------------------------------------
     def get_asm_extensions(self):
         extlist = [ self._asm_ext, self._asm_ext2 ]
         return extlist
 
+
+    # Because Windoze is pain!
+    def _build_ar_rule( self ):
+        self._ninja_writer.rule( 
+            name = 'ar', 
+            command = 'cmd.exe /C "$rm $out 1>nul 2>nul && $ar ${aropts} ${arout}${out} $in"', 
+            description = "Archiving Directory: $out" )
+        self._ninja_writer.newline()

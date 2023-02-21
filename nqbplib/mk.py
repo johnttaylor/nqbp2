@@ -231,11 +231,10 @@ def do_build( printer, toolchain, arguments, variant ):
         toolchain._ninja_writer.newline()
         toolchain._ninja_writer.comment( "Linking:" )
         toolchain._ninja_writer.newline()
-        toolchain.link( arguments, builtlibs, objfiles, 'local' )
+        linkout = toolchain.link( arguments, builtlibs, objfiles, 'local' )
 
         # Finalize the ninja file
-        toolchain._ninja_writer.newline()
-        toolchain._ninja_writer.default( toolchain.get_final_output_name() )
+        toolchain.finalize(  arguments, builtlibs, objfiles, 'local', linkout )
         ninja_file.close()
         
         # Run ninja
