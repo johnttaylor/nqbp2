@@ -132,36 +132,36 @@ class Writer(object):
     def _line(self, text, indent=0):
         """Write 'text' word-wrapped at self.width characters."""
         leading_space = '  ' * indent
-        while len(leading_space) + len(text) > self.width:
-            # The text is too wide; wrap if possible.
-
-            # Find the rightmost space that would obey our width constraint and
-            # that's not an escaped space.
-            available_space = self.width - len(leading_space) - len(' $')
-            space = available_space
-            while True:
-                space = text.rfind(' ', 0, space)
-                if (space < 0 or
-                    self._count_dollars_before_index(text, space) % 2 == 0):
-                    break
-
-            if space < 0:
-                # No such space; just use the first unescaped space we can find.
-                space = available_space - 1
-                while True:
-                    space = text.find(' ', space + 1)
-                    if (space < 0 or
-                        self._count_dollars_before_index(text, space) % 2 == 0):
-                        break
-            if space < 0:
-                # Give up on breaking.
-                break
-
-            self.output.write(leading_space + text[0:space] + ' $\n')
-            text = text[space+1:]
-
-            # Subsequent lines are continuations, so indent them.
-            leading_space = '  ' * (indent+2)
+        #while len(leading_space) + len(text) > self.width:
+        #    # The text is too wide; wrap if possible.
+        #
+        #    # Find the rightmost space that would obey our width constraint and
+        #    # that's not an escaped space.
+        #    available_space = self.width - len(leading_space) - len(' $')
+        #    space = available_space
+        #    while True:
+        #        space = text.rfind(' ', 0, space)
+        #        if (space < 0 or
+        #            self._count_dollars_before_index(text, space) % 2 == 0):
+        #            break
+        #
+        #    if space < 0:
+        #        # No such space; just use the first unescaped space we can find.
+        #        space = available_space - 1
+        #        while True:
+        #            space = text.find(' ', space + 1)
+        #            if (space < 0 or
+        #                self._count_dollars_before_index(text, space) % 2 == 0):
+        #                break
+        #    if space < 0:
+        #        # Give up on breaking.
+        #        break
+        #
+        #    self.output.write(leading_space + text[0:space] + ' $\n')
+        #    text = text[space+1:]
+        #
+        #    # Subsequent lines are continuations, so indent them.
+        #    leading_space = '  ' * (indent+2)
 
         self.output.write(leading_space + text + '\n')
 

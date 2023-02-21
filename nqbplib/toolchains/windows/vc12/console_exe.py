@@ -24,8 +24,7 @@ class ToolChain( base.ToolChain ):
         self._asm       = 'masm'   
         self._ar        = 'lib'   
         self._objcpy    = ''
-        self._rm        = 'cmd /c erase /F /S /Q'
-        self._rm_suffix = '1>nul 2>nul'
+        self._rm        = 'del /f'
         self._obj_ext   = 'obj'   
         self._asm_ext   = 's'    
         
@@ -115,4 +114,11 @@ class ToolChain( base.ToolChain ):
             command = f'$cc /showIncludes /D "BUILD_TIME_UTC=$buildtime" $ccopts $in /Fo: $out', 
             description = "Compiling: $in", 
             deps = 'msvc' )
+        self._ninja_writer.newline()
+
+    def _build_ar_rule( self ):
+        self._ninja_writer.rule( 
+            name = 'ar', 
+            command = 'cmd.exe /C "$rm $out 1>nul 2>nul && $ar ${aropts} ${arout}${out} $in"', 
+            description = "Archiving Directory: $out" )
         self._ninja_writer.newline()

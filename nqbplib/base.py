@@ -128,7 +128,6 @@ class ToolChain:
         self._ar        = 'ar'   
         self._objcpy    = 'objcpy'
         self._rm        = 'rm -f'
-        self._rm_suffix = ''
 
         
         self._obj_ext  = 'o'    
@@ -216,46 +215,16 @@ class ToolChain:
         
     
     #--------------------------------------------------------------------------
-    def clean(self, pkg, ext, abs, silent=False, blddir=True):
-        if ( blddir == True ):
-            if ( not silent ):
-                self._printer.output( "= Cleaning Built artifacts..." )
-            # remove output/build variant directory
-            vardir = '_' + self._bld
-            self._printer.debug( '# Cleaning directory: {}'.format( vardir ) )
-            if ( os.path.exists(vardir) ):
-                shutil.rmtree( vardir, True )   
+    def clean(self, silent=False):
+        if ( not silent ):
+            self._printer.output( "= Cleaning Built directory..." )
 
-        if ( pkg == True ):
-            if ( not silent ):
-                self._printer.output( "= Cleaning Project and local Package derived objects..." )
-            self._printer.debug( '# Cleaning file extensions: {}'.format( self._clean_list ) )
-            utils.run_clean_dir_pre_processing( NQBP_PRJ_DIR(), self._printer )
-            utils.run_clean_pre_processing( self._printer, self.libdirs, clean_pkg=True, clean_local=True )
-            utils.del_files_by_ext( NQBP_PRJ_DIR(), self._clean_list )
+        # remove output/build variant directory
+        vardir = '_' + self._bld
+        self._printer.debug( '# Cleaning directory: {}'.format( vardir ) )
+        if ( os.path.exists(vardir) ):
+            shutil.rmtree( vardir, True )   
 
-            self._printer.debug( '# Cleaning directories: {}'.format( self._clean_pkg_dirs ) )
-            for d in self._clean_pkg_dirs:
-                if ( os.path.exists(d) ):
-                    shutil.rmtree( d, True )
-
-        if ( ext == True ):
-            if ( not silent ):
-                self._printer.output( "= Cleaning External Package derived objects..." )
-            self._printer.debug( '# Cleaning directories: {}'.format( self._clean_ext_dirs ) )
-            utils.run_clean_pre_processing( self._printer, self.libdirs, clean_xpkgs=True )
-            for d in self._clean_ext_dirs:
-                if ( os.path.exists(d) ):
-                    shutil.rmtree( d, True )
-
-        if ( abs == True ):
-            if ( not silent ):
-                self._printer.output( "= Cleaning Absolute Path derived objects..." )
-            self._printer.debug( '# Cleaning directories: {}'.format( self._clean_abs_dirs ) )
-            utils.run_clean_pre_processing( self._printer, self.libdirs, clean_absolute=True )
-            for d in self._clean_abs_dirs:
-                if ( os.path.exists(d) ):
-                    shutil.rmtree( d, True )
                 
  
     #--------------------------------------------------------------------------
@@ -264,8 +233,7 @@ class ToolChain:
             if ( not silent ):
                 self._printer.output( "=====================" )
                 self._printer.output( "= Build Variant: " + b )
-            self.pre_build( b, arguments )
-            self.clean(True,True,True,silent)
+            self.clean(silent)
     
 
     #--------------------------------------------------------------------------
@@ -383,7 +351,7 @@ class ToolChain:
         
         self._ninja_writer.newline()
         return outputname
-                   
+
     #--------------------------------------------------------------------------
     def validate_cc( self ):
         cc = self._cc + ' ' + self._validate_cc_options
@@ -472,7 +440,7 @@ class ToolChain:
             outputs    = self._final_output_name,
             rule       = 'link',
             inputs     = objfiles ,
-            order_only = libs,
+            implicit   = libs,
             variables  = {"ldopts":ldopts, "ldout":self._link_output} )
         self._ninja_writer.newline()
         
@@ -494,8 +462,7 @@ class ToolChain:
         self._ninja_writer.variable( 'ar',  f"{self._ar}" )      
         self._ninja_writer.variable( 'objcpy', f"{self._objcpy}" )
         self._ninja_writer.variable( 'rm', f"{self._rm}" )
-        self._ninja_writer.variable( 'rm_suffix', f"{self._rm_suffix}" )
-        self._ninja_writer.variable( 'buildtime', f"{self.get_build_time}" if arguments['--bldtime']  else "0" )
+        self._ninja_writer.variable( 'buildtime', str(self._build_time_utc) if arguments['--bldtime']  else "0" )
         self._ninja_writer.newline()
         self._build_compile_rule()
         self._ninja_writer.newline()
@@ -519,7 +486,7 @@ class ToolChain:
         # TODO: Replace with default gcc version
         self._ninja_writer.rule( 
             name = 'ar', 
-            command = "$rm $out $rm_suffix && $ar ${aropts} ${arout}${out} $in", 
+            command = "$rm $out && $ar ${aropts} ${arout}${out} $in", 
             description = "Archiving Directory: $out" )
         self._ninja_writer.newline()
         

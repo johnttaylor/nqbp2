@@ -17,10 +17,6 @@ class ToolChain( base.ToolChain ):
         base.ToolChain.__init__( self, exename, prjdir, build_variants, default_variant )
         self._ccname = 'Mingw_W64'
         
-        # Windows specific stuffs
-        self._rm        = 'cmd /c erase /F /S /Q'
-        self._rm_suffix = '1>nul 2>nul'
-
         # more stuff to clean
         self._clean_list.extend( ['xml'] )
 
@@ -68,3 +64,11 @@ class ToolChain( base.ToolChain ):
            sys.exit(1)
 
        return t
+
+    #--------------------------------------------------------------------------
+    def _build_ar_rule( self ):
+        self._ninja_writer.rule( 
+            name = 'ar', 
+            command = 'cmd.exe /C "$rm $out 1>nul 2>nul && $ar ${aropts} ${arout}${out} $in"', 
+            description = "Archiving Directory: $out" )
+        self._ninja_writer.newline()

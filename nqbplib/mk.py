@@ -62,6 +62,7 @@ Arguments:
                    exist - the script does not report a failure on exit.
   --bld-all        Builds all variants.  Does NOT build variants that start 
                    with a leading '_'.
+  -c               Perform a clean operation before starting the build
   -g               Debug build (default is release build.
   -v               Display Compiler/linker options.
   --bldnum M       Passes 'M' as build number information for the build. 
@@ -130,6 +131,9 @@ def build( argv, toolchain ):
     pre_build_steps( printer, toolchain, arguments )
     printer.debug( str(arguments) )
     
+    if ( arguments['-c'] ):
+        toolchain.clean_all( arguments )
+
     # Process 'non-build' options
     if ( arguments['--qry-blds'] ):
         toolchain.list_variants()
@@ -145,10 +149,6 @@ def build( argv, toolchain ):
         printer.remove_log_file()
         sys.exit()
     
-    if ( arguments['--clean-all'] ):
-        toolchain.clean_all( arguments )
-        sys.exit()
-        
     # Validate Compiler toolchain is set properly (ONLY after non-build options have been processed, i.e. don't have to have an 'active' toolchain for non-build options to work)
     toolchain.validate_cc()
             
@@ -228,6 +228,9 @@ def do_build( printer, toolchain, arguments, variant ):
         inf.close()
         
         # Generate ninja content for the link
+        toolchain._ninja_writer.newline()
+        toolchain._ninja_writer.comment( "Linking:" )
+        toolchain._ninja_writer.newline()
         toolchain.link( arguments, builtlibs, objfiles, 'local' )
 
         # Finalize the ninja file
