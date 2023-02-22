@@ -30,6 +30,7 @@ _BUILT_DIR_         - The build fields .firstobjs and .lastobjs, can be set (in
 """
 
 #
+from itertools import filterfalse
 import logging
 import time
 import os
@@ -131,7 +132,8 @@ class ToolChain:
         self._printsz   = 'size'
         self._rm        = 'rm -f'
         self._shell     = ''
-        
+        self._os_sep    = os.sep
+
         self._obj_ext  = 'o'    
         self._asm_ext  = 's'    
         
@@ -323,6 +325,13 @@ class ToolChain:
             self._all_opts.append( bld.get('optimized', self._optimized_release ) )
             self._all_opts.append( bld.get('user_optimized', null ) )
             
+        # Make sure the directory separator is correct for header includes
+        self._all_opts.inc = utils.standardize_dir_sep( self._all_opts.inc, self._os_sep )
+        self._all_opts.asminc = utils.standardize_dir_sep( self._all_opts.asminc, self._os_sep  )
+        self._all_opts.firstobjs = utils.standardize_dir_sep( self._all_opts.firstobjs, self._os_sep  )
+        self._all_opts.lastobjs = utils.standardize_dir_sep( self._all_opts.lastobjs, self._os_sep  )
+        self._all_opts.linkscript = utils.standardize_dir_sep( self._all_opts.linkscript, self._os_sep  )
+
         if ( arguments['--debug'] ):
             self._printer.debug( "# Final 'all_opts'" )
             self._dump_options(  self._all_opts, True )
@@ -338,17 +347,23 @@ class ToolChain:
             # Start the Ninja file
             self._start_ninja_file( bld_var, arguments );
 
+
     #--------------------------------------------------------------------------
     def ar( self, arguments, objfiles, relative_objpath ):
 
         # Create output filename
         outputname = os.path.join( relative_objpath, self._ar_library_name ) 
       
+        # normalize the directory separator
+        objs = []
+        for o in objfiles:
+            objs.append( utils.standardize_dir_sep( o, self._os_sep ) )
+
         # Generate ninja build statement
         self._ninja_writer.build( 
             outputs = outputname,
             rule = 'ar',
-            inputs = objfiles,
+            inputs = objs,
             variables = {"aropts":self._ar_options, "arout":self._ar_out} )
         
         self._ninja_writer.newline()
@@ -396,10 +411,10 @@ class ToolChain:
         cc = cc.replace( 'ME_CC_BASE_FILENAME', basename )
         
         # ensure correct directory separator                                
-        full_fname = utils.standardize_dir_sep( fullname )
+        full_fname = utils.standardize_dir_sep( fullname, self._os_sep )
 
         # Create output file name
-        outputname = os.path.join(relative_objpath, basename ) + '.' +  self._obj_ext
+        outputname = utils.standardize_dir_sep( os.path.join(relative_objpath, basename ) + '.' +  self._obj_ext, self._os_sep )
 
         # Generate ninja build statement
         if ( is_cxx ):
@@ -454,11 +469,21 @@ class ToolChain:
         if ( extra_inputs_list != None ):
             link_inputs.extend( extra_inputs_list) 
 
+        # Normalize the directory separator
+        ldopts = utils.standardize_dir_sep( ldopts, self._os_sep )
+        final_link_inputs = []
+        for i in link_inputs:
+            final_link_inputs = utils.standardize_dir_sep( i, self._os_sep )
+
+        # Build implicit list
+        impl_list = libs
+        impl_list.extend( objfiles) 
+
         self._ninja_writer.build(
             outputs    = outname,
             rule       = 'link',
-            inputs     = link_inputs,
-            implicit   = libs,
+            inputs     = final_link_inputs,
+            implicit   = impl_list,
             variables  = {"ldopts":ldopts, "ldout":self._link_output} )
         self._ninja_writer.newline()
         
@@ -516,6 +541,16 @@ class ToolChain:
             depfile = "$out.d",
             deps = 'gcc' )
 
+    def _build_withrspfile_compile_rule( self ):
+        self._ninja_writer.rule( 
+            name = 'compile', 
+            command = f"$cc -MMD -MT $out -MF $out.d {self._cflag_symdef}BUILD_TIME_UTC=$buildtime @$out.rsp $in -o $out", 
+            rspfile = '$out.rsp',
+            rspfile_content = '$ccopts',
+            description = "Compiling: $in", 
+            depfile = "$out.d",
+            deps = 'gcc' )
+
     def _build_assemble_rule( self ):
         self._ninja_writer.rule( 
             name = 'assemble', 
@@ -524,17 +559,42 @@ class ToolChain:
             depfile = "$out.d",
             deps = 'gcc' )
 
+    def _build_withrspfile_assemble_rule( self ):
+        self._ninja_writer.rule( 
+            name = 'assemble', 
+            command = f"$asm -MMD -MT $out -MF $out.d {self._asmflag_symdef}BUILD_TIME_UTC=$buildtime @$out.rsp $in -o $out", 
+            rspfile = '$out.rsp',
+            rspfile_content = '$asmopts',
+            description = "Assembling: $in", 
+            depfile = "$out.d",
+            deps = 'gcc' )
+
     def _build_ar_rule( self ):
         self._ninja_writer.rule( 
             name = 'ar', 
-            command = "$rm $out && $ar ${aropts} ${arout}${out} $in", 
+            command = "$rm $out && $ar $aropts ${arout}${out} $in", 
             description = "Archiving Directory: $out" )
         
-    def _build_link_rule( self ):
-        # TODO: Replace with default gcc version
+    def _build_withrspfile_ar_rule( self ):
         self._ninja_writer.rule( 
+            name = 'ar', 
+            command = "$rm $out && $ar $aropts ${arout}${out} @$out.rsp", 
+            rspfile = '$out.rsp',
+            rspfile_content = '$in',
+            description = "Archiving Directory: $out" )
+
+    def _build_link_rule( self ):
+         self._ninja_writer.rule( 
             name = 'link', 
-            command = "$ld ${ldout}${out} ${ldopts}", 
+            command = "$ld ${ldout}${out} $ldopts", 
+            description = "Linking: $out" )
+
+    def _build_withrspfile_link_rule( self ):
+         self._ninja_writer.rule( 
+            name = 'link', 
+            command = "$ld ${ldout}${out} @$out.rsp", 
+            rspfile = '$out.rsp',
+            rspfile_content = '$ldopts',
             description = "Linking: $out" )
 
     def _build_objcpy_rule( self ):
@@ -587,6 +647,36 @@ class ToolChain:
         
         return name_final_target
     
+
+    #--------------------------------------------------------------------------
+    # Windows/Visual Studio specific rules
+    def _vs_build_compile_rule( self ):
+        self._ninja_writer.variable( 'msvc_deps_prefix', 'Note: including file:' )
+        self._ninja_writer.rule( 
+            name = 'compile', 
+            command = f'$cc /showIncludes /D "BUILD_TIME_UTC=$buildtime" @$out.rsp $in /Fo: $out', 
+            description = "Compiling: $in", 
+            rspfile = '$out.rsp',
+            rspfile_content = '$ccopts',
+            deps = 'msvc' )
+        self._ninja_writer.newline()
+    
+    def _win32_withrspfile_build_ar_rule( self ):
+        self._ninja_writer.rule( 
+            name = 'ar', 
+            command = 'cmd.exe /C "$rm $out 1>nul 2>nul && $ar $aropts ${arout}${out} @$out.rsp"', 
+            rspfile = '$out.rsp',
+            rspfile_content = '$in',
+            description = "Archiving Directory: $out" )
+        self._ninja_writer.newline()
+
+    def _win32_build_ar_rule( self ):
+        self._ninja_writer.rule( 
+            name = 'ar', 
+            command = 'cmd.exe /C "$rm $out 1>nul 2>nul && $ar $aropts ${arout}${out} $in"', 
+            description = "Archiving Directory: $out" )
+        self._ninja_writer.newline()
+
     #--------------------------------------------------------------------------
     def _format_custom_c_define( self, sym ):
         return self._cflag_symdef   + self._cflag_symvalue_delimiter   + sym + self._cflag_symvalue_delimiter + ' '
@@ -632,6 +722,7 @@ class ToolChain:
         self._printer.debug( '#      linkflags:  ' + sv.linkflags  + ("\n" if extraSpace else " "))
         self._printer.debug( '#      linklibs:   ' + sv.linklibs   + ("\n" if extraSpace else " "))
         self._printer.debug( '#      firstobjs:  ' + sv.firstobjs  + ("\n" if extraSpace else " "))
+        self._printer.debug( '#      lastobjs:   ' + sv.lastobjs   + ("\n" if extraSpace else " "))
         self._printer.debug( '#      linkscript: ' + sv.linkscript + ("\n" if extraSpace else " "))
   
                                                                          

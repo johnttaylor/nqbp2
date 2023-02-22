@@ -31,7 +31,6 @@ _dirstack = []
 verbose_mode = False
 
 
-
 #-----------------------------------------------------------------------------
 def dir_list_filter_by_ext(dir, exts, derivedDir=False): 
     """Returns a list of files filter by the passed file extensions
@@ -450,8 +449,8 @@ def delete_file( fname ):
     
            
 #-----------------------------------------------------------------------------
-def standardize_dir_sep( pathinfo ):
-    return pathinfo.replace( '/', os.sep ).replace( '\\', os.sep )
+def standardize_dir_sep( pathinfo, os_sep=os.sep  ):
+    return pathinfo.replace( '/', os_sep).replace( '\\', os_sep )
 
 def strip_drive_letter( path ):
     r = path.split( ":", 1 )

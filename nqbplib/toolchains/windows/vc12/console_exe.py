@@ -83,17 +83,7 @@ class ToolChain( base.ToolChain ):
 
     #-----------------------------------------------------
     def _build_compile_rule( self ):
-        self._ninja_writer.variable( 'msvc_deps_prefix', 'Note: including file:' )
-        self._ninja_writer.rule( 
-            name = 'compile', 
-            command = f'$cc /showIncludes /D "BUILD_TIME_UTC=$buildtime" $ccopts $in /Fo: $out', 
-            description = "Compiling: $in", 
-            deps = 'msvc' )
-        self._ninja_writer.newline()
+        self._vs_build_compile_rule()
 
     def _build_ar_rule( self ):
-        self._ninja_writer.rule( 
-            name = 'ar', 
-            command = 'cmd.exe /C "$rm $out 1>nul 2>nul && $ar ${aropts} ${arout}${out} $in"', 
-            description = "Archiving Directory: $out" )
-        self._ninja_writer.newline()
+        self._win32_build_ar_rule()

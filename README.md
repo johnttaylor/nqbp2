@@ -48,10 +48,10 @@ of ninja).
 Here is list of variables in the toolchain _class_ that have changed in their
 usage and/or expected content.
 ```
-self._ar_out
 self._ar_opts
 self._link_output
 self._base_release.cflags   // Need to remove -D BUILD_TIME_UTC
+self._ar_out                // New
 self._rm                    // New
 self._shell                 // New
 ```
@@ -68,11 +68,23 @@ NQBP classic only stored the final outputs (`.exe`, `.bin`) in the build variant
 directory. It stored/located the object files and libraries in the project 
 directory itself or in source-path-specific sub-directories.
 
+### BUILD_TIME_UTC
+NQBP classic defined the symbol `BUILD_TIME_UTC` as a compiler
+preprocessor definition. The value was/is set to UTC time in seconds of when the 
+build is performed.  This was done for all builds.  However, this approach 
+does not work with incremental builds because the compiler arguments are always 
+different (due to new current time value) - which in turn triggers a full build. 
+
+NQBP Gen2 still defines the `BUILD_TIME_UTC` symbol, but by default sets its 
+value to `0`.  The Gen2 `nqbpy.py` script has a new option - `--bldtime` - that 
+when used, sets `BUILD_TIME_UTC` to the current build time (instead of `0`).  The 
+intent here is that formal builds would use the `--bldtime` switch, and developer 
+build would not.
+
 ### Performance
-NQBP Gen2 is faster on a build-all than NQBP classic.  In my test Gen2 averages 
-around ~25% faster.  The caveat here is that I don't any _really big_ projects to
-determine if the speed improvement is due to less console IO for Gen2 or that `ninja` 
-really is just faster.
+NQBP Gen2 is faster on a build-all than NQBP classic.  In my tests Gen2 ranges 
+between 20% to 50% faseter - depending on the size of the project, PC specs, etc.
+However, in general larger projects have a larger performance increase.
 
 ### TODO
 The toolchains listed below have been ported to NQBP Gen2 - but I have not verified

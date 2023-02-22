@@ -146,9 +146,12 @@ def build( argv, toolchain ):
     if ( arguments['--qry-and-clean'] ):
         printer.output( NQBP_PRJ_DIR() )
         toolchain.clean_all( arguments, silent=True )
-        printer.remove_log_file()
         sys.exit()
     
+    if ( arguments['--clean-all'] ):
+        toolchain.clean_all( arguments, silent=True )
+        sys.exit()
+
     # Validate Compiler toolchain is set properly (ONLY after non-build options have been processed, i.e. don't have to have an 'active' toolchain for non-build options to work)
     toolchain.validate_cc()
             
