@@ -146,8 +146,8 @@ class ToolChain:
         self._clean_abs_dirs = []
  
         self._ar_library_name = 'library.a'
-        self._ar_options      = ''
-        self._ar_out          = 'crs '
+        self._ar_options      = 'crs'
+        self._ar_out          = ''
 
         self._link_lib_prefix       = ''
         self._linker_libgroup_start = '-Wl,--start-group'
@@ -525,7 +525,6 @@ class ToolChain:
             deps = 'gcc' )
 
     def _build_ar_rule( self ):
-        # TODO: Replace with default gcc version
         self._ninja_writer.rule( 
             name = 'ar', 
             command = "$rm $out && $ar ${aropts} ${arout}${out} $in", 
