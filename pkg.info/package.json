@@ -22,7 +22,13 @@
     "pkgname": "nqbp"
   },
   "publish": {
-    "current": null,
+    "current": {
+      "comment": "initial version (most (but not all) toolchains have been verified)",
+      "version": "0.1.0",
+      "date": "Wed Feb 22 00:40:08 2023",
+      "timestamp": 1677026408,
+      "changes": null
+    },
     "history": []
   }
 }
