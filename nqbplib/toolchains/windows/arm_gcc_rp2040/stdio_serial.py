@@ -92,11 +92,12 @@ class ToolChain( base.ToolChain ):
           
         # 
         mcu                             = '-mcpu=cortex-m0plus'
-        common_flags                    = f' -O3 -DPICO_CONFIG_HEADER={board_header} {mcu} -mthumb -ffunction-sections -fdata-sections -Wno-stringop-truncation -DPICO_TARGET_NAME=\\"{exename}\\" -DPICO_BOARD=\\"{board}\\" -DLIB_PICO_BIT_OPS=1 -DLIB_PICO_BIT_OPS_PICO=1 -DLIB_PICO_DIVIDER=1 -DLIB_PICO_DIVIDER_HARDWARE=1 -DLIB_PICO_DOUBLE=1 -DLIB_PICO_DOUBLE_PICO=1 -DLIB_PICO_FLOAT=1 -DLIB_PICO_FLOAT_PICO=1 -DLIB_PICO_INT64_OPS=1 -DLIB_PICO_INT64_OPS_PICO=1 -DLIB_PICO_MALLOC=1 -DLIB_PICO_MEM_OPS=1 -DLIB_PICO_MEM_OPS_PICO=1 -DLIB_PICO_PLATFORM=1 -DLIB_PICO_PRINTF=1 -DLIB_PICO_PRINTF_PICO=1 -DLIB_PICO_RUNTIME=1 -DLIB_PICO_STANDARD_LINK=1 -DLIB_PICO_STDIO=1 -DLIB_PICO_STDLIB=1 -DLIB_PICO_SYNC=1 -DLIB_PICO_SYNC_CORE=1 -DLIB_PICO_SYNC_CRITICAL_SECTION=1 -DLIB_PICO_SYNC_MUTEX=1 -DLIB_PICO_SYNC_SEM=1 -DLIB_PICO_TIME=1 -DLIB_PICO_UTIL=1 -DPICO_BUILD=1 -DLIB_PICO_UNIQUE_ID=1'
+        common_flags                    = f' -O3 -DPICO_CONFIG_HEADER={board_header} {mcu} -mthumb -ffunction-sections -fdata-sections -Wno-array-bounds -Wno-stringop-truncation -DPICO_TARGET_NAME=\\"{exename}\\" -DPICO_BOARD=\\"{board}\\" -DLIB_PICO_BIT_OPS=1 -DLIB_PICO_BIT_OPS_PICO=1 -DLIB_PICO_DIVIDER=1 -DLIB_PICO_DIVIDER_HARDWARE=1 -DLIB_PICO_DOUBLE=1 -DLIB_PICO_DOUBLE_PICO=1 -DLIB_PICO_FLOAT=1 -DLIB_PICO_FLOAT_PICO=1 -DLIB_PICO_INT64_OPS=1 -DLIB_PICO_INT64_OPS_PICO=1 -DLIB_PICO_MALLOC=1 -DLIB_PICO_MEM_OPS=1 -DLIB_PICO_MEM_OPS_PICO=1 -DLIB_PICO_PLATFORM=1 -DLIB_PICO_PRINTF=1 -DLIB_PICO_PRINTF_PICO=1 -DLIB_PICO_RUNTIME=1 -DLIB_PICO_STANDARD_LINK=1 -DLIB_PICO_STDIO=1 -DLIB_PICO_STDLIB=1 -DLIB_PICO_SYNC=1 -DLIB_PICO_SYNC_CORE=1 -DLIB_PICO_SYNC_CRITICAL_SECTION=1 -DLIB_PICO_SYNC_MUTEX=1 -DLIB_PICO_SYNC_SEM=1 -DLIB_PICO_TIME=1 -DLIB_PICO_UTIL=1 -DPICO_BUILD=1 -DLIB_PICO_UNIQUE_ID=1'
         common_flags                    = common_flags + ' -DLIB_PICO_STDIO_UART=1'  
         self._base_release.cflags       = self._base_release.cflags + common_flags
         self._base_release.c_only_flags = self._base_release.c_only_flags + ' -std=gnu11'
         self._base_release.cppflags     = self._base_release.cppflags + ' -Wno-restrict -Wno-address-of-packed-member -Wno-class-memaccess -DPICO_CXX_ENABLE_EXCEPTIONS=0 -fno-threadsafe-statics -fno-rtti -fno-exceptions -fno-unwind-tables -fno-use-cxa-atexit'
+        self._base_release.cppflags    += ' -Wno-restrict -Wno-address-of-packed-member -Wno-class-memaccess'
         self._base_release.asmflags     = self._base_release.cflags 
         self._base_release.asminc       = self._base_release.asminc + self._base_release.inc + ' -I ' + sdk_src_path + '/rp2_common/boot_stage2/asminclude'
         
@@ -117,7 +118,7 @@ class ToolChain( base.ToolChain ):
         self._optimized_release.linkflags  = self._optimized_release.linkflags + ' -DNDEBUG'
 
         # Debug options, flags, etc.
-        self._debug_release.cflags     = self._debug_release.cflags + r' -DDEBUG -DPICO_CMAKE_BUILD_TYPE="Debug"'
+        self._debug_release.cflags     = self._debug_release.cflags + r' -DDEBUG -DPICO_CMAKE_BUILD_TYPE=\"Debug\"'
         self._debug_release.linkflags  = self._debug_release.linkflags + ' -DDEBUG'
         
  

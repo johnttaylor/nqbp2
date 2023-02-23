@@ -473,7 +473,7 @@ class ToolChain:
         ldopts = utils.standardize_dir_sep( ldopts, self._os_sep )
         final_link_inputs = []
         for i in link_inputs:
-            final_link_inputs = utils.standardize_dir_sep( i, self._os_sep )
+            final_link_inputs.append( utils.standardize_dir_sep( i, self._os_sep ) )
 
         # Build implicit list
         impl_list = libs

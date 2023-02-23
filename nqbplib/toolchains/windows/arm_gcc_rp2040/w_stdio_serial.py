@@ -7,7 +7,7 @@
 #   Output:     .BIN|ELF|UF2 file
 #------------------------------------------------------------------------------
 
-import sys, os
+import sys, os, shutil
 from nqbplib import base
 from nqbplib import utils
 from nqbplib import my_globals
@@ -19,7 +19,7 @@ from nqbplib import my_globals
 class ToolChain( base.ToolChain ):
 
     #--------------------------------------------------------------------------
-    def __init__( self, exename, prjdir, build_variants, board, pico_root, default_variant='release', env_error=None ):
+    def __init__( self, exename, prjdir, build_variants, board, pico_root, default_variant='release', cyw43_firmware_bin='43439A0-7.95.49.00.combined', env_error=None ):
         base.ToolChain.__init__( self, exename, prjdir, build_variants, default_variant )
         self._ccname     = 'GCC Arm-Cortex (none-eabi) Compiler'
         self._cc         = 'arm-none-eabi-gcc' 
@@ -40,6 +40,14 @@ class ToolChain( base.ToolChain ):
 
         self._clean_pkg_dirs.extend( ['_pico'] )
 
+        # Cache CYW43 Firmware image name
+        self._cyw43_firmware_bin = cyw43_firmware_bin
+        self._path_cy43_firmware = os.path.join( pico_root, "xsrc", "pico-sdk", "lib", "cyw43-driver", "firmware", cyw43_firmware_bin )
+        self._path_cy43_firmware = utils.standardize_dir_sep( self._path_cy43_firmware, self._os_sep )
+		
+        # set the name of the linker output (not the final output)
+        self._link_output = '-o'
+
         # Define paths
         sdk_src_path = os.path.join( pico_root, 'xsrc', 'pico-sdk', 'src' )
         self._base_release.inc = self._base_release.inc + \
@@ -51,15 +59,21 @@ class ToolChain( base.ToolChain ):
                 ' -I' + sdk_src_path + r'\common\pico_binary_info\include' + \
                 ' -I' + sdk_src_path + r'\common\pico_time\include' + \
                 ' -I' + sdk_src_path + r'\common\pico_util\include' + \
-                ' -I' + sdk_src_path + r'\common\pico_usb_reset_interface\include' + \
+                ' -I' + sdk_src_path + r'\rp2_common\pico_cyw43_arch\include' + \
+                ' -I' + sdk_src_path + r'\rp2_common\pico_lwip\include' + \
+                ' -I' + sdk_src_path + r'\rp2_common\cyw43_driver' + \
                 ' -I' + sdk_src_path + r'\rp2_common\hardware_gpio\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\pico_platform\include' + \
+                ' -I' + sdk_src_path + r'\rp2_common\hardware_dma\include' + \
+                ' -I' + sdk_src_path + r'\rp2_common\hardware_pio\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\hardware_base\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\hardware_claim\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\hardware_sync\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\hardware_ireq\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\hardware_timer\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\hardware_uart\include' + \
+                ' -I' + sdk_src_path + r'\rp2_common\hardware_i2c\include' + \
+                ' -I' + sdk_src_path + r'\rp2_common\hardware_spi\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\hardware_divider\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\pico_runtime\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\hardware_clocks\include' + \
@@ -69,6 +83,7 @@ class ToolChain( base.ToolChain ):
                 ' -I' + sdk_src_path + r'\rp2_common\hardware_vreg\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\hardware_watchdog\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\hardware_xosc\include' + \
+                ' -I' + sdk_src_path + r'\rp2_common\hardware_flash\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\pico_printf\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\pico_bootrom\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\pico_double\include' + \
@@ -78,31 +93,27 @@ class ToolChain( base.ToolChain ):
                 ' -I' + sdk_src_path + r'\rp2_common\pico_mem_ops\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\boot_stage2\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\pico_stdio\include' + \
-                ' -I' + sdk_src_path + r'\rp2_common\pico_stdio_usb\include' + \
+                ' -I' + sdk_src_path + r'\rp2_common\pico_stdio_uart\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\pico_multicore\include' + \
-                ' -I' + sdk_src_path + r'\rp2_common\pico_fix\rp2040_usb_device_enumeration\include' + \
                 ' -I' + sdk_src_path + r'\rp2_common\pico_unique_id\include ' + \
-                ' -I' + sdk_src_path + r'\rp2_common\hardware_flash\include' + \
                 ' -I' + sdk_src_path + r'\rp2040\hardware_regs\include' + \
                 ' -I' + sdk_src_path + r'\rp2040\hardware_structs\include'
 
-        # USB support
-        usb_src_path = os.path.join( pico_root, 'xsrc', 'pico-sdk', 'lib', 'tinyusb' )
+        # SDK Library path
+        sdk_lib_path = os.path.join( pico_root, 'xsrc', 'pico-sdk', 'lib' )
         self._base_release.inc = self._base_release.inc + \
-                ' -I' + usb_src_path  + r'\src' + \
-                ' -I' + usb_src_path  + r'\src\common' + \
-                ' -I' + usb_src_path  + r'\hw'
-
+                ' -I' + sdk_lib_path + r'\cyw43-driver\firmware' + \
+                ' -I' + sdk_lib_path + r'\cyw43-driver\src'
 
         # Include the target board's header file
         board_header = os.path.join( pico_root, "xsrc", "pico-sdk", "src", "boards", "include", "boards", board + '.h' )
         board_header = utils.standardize_dir_sep( board_header, self._os_sep )
 
           
-        #
+        # 
         mcu                             = '-mcpu=cortex-m0plus'
         common_flags                    = f' -O3 -DPICO_CONFIG_HEADER={board_header} {mcu} -mthumb -ffunction-sections -fdata-sections -Wno-array-bounds -Wno-stringop-truncation -DPICO_TARGET_NAME=\\"{exename}\\" -DPICO_BOARD=\\"{board}\\" -DLIB_PICO_BIT_OPS=1 -DLIB_PICO_BIT_OPS_PICO=1 -DLIB_PICO_DIVIDER=1 -DLIB_PICO_DIVIDER_HARDWARE=1 -DLIB_PICO_DOUBLE=1 -DLIB_PICO_DOUBLE_PICO=1 -DLIB_PICO_FLOAT=1 -DLIB_PICO_FLOAT_PICO=1 -DLIB_PICO_INT64_OPS=1 -DLIB_PICO_INT64_OPS_PICO=1 -DLIB_PICO_MALLOC=1 -DLIB_PICO_MEM_OPS=1 -DLIB_PICO_MEM_OPS_PICO=1 -DLIB_PICO_PLATFORM=1 -DLIB_PICO_PRINTF=1 -DLIB_PICO_PRINTF_PICO=1 -DLIB_PICO_RUNTIME=1 -DLIB_PICO_STANDARD_LINK=1 -DLIB_PICO_STDIO=1 -DLIB_PICO_STDLIB=1 -DLIB_PICO_SYNC=1 -DLIB_PICO_SYNC_CORE=1 -DLIB_PICO_SYNC_CRITICAL_SECTION=1 -DLIB_PICO_SYNC_MUTEX=1 -DLIB_PICO_SYNC_SEM=1 -DLIB_PICO_TIME=1 -DLIB_PICO_UTIL=1 -DPICO_BUILD=1 -DLIB_PICO_UNIQUE_ID=1'
-        common_flags                    = common_flags + ' -DLIB_PICO_STDIO_USB=1 -DLIB_PICO_STDIO_UART=0 -DCFG_TUSB_MCU=OPT_MCU_RP2040 -DCFG_TUSB_OS=OPT_OS_PICO -DLIB_PICO_FIX_RP2040_USB_DEVICE_ENUMERATION=1'  
+        common_flags                    = common_flags + ' -DLIB_PICO_STDIO_UART=1'  
         self._base_release.cflags       = self._base_release.cflags + common_flags
         self._base_release.c_only_flags = self._base_release.c_only_flags + ' -std=gnu11'
         self._base_release.cppflags     = self._base_release.cppflags + ' -Wno-restrict -Wno-address-of-packed-member -Wno-class-memaccess -DPICO_CXX_ENABLE_EXCEPTIONS=0 -fno-threadsafe-statics -fno-rtti -fno-exceptions -fno-unwind-tables -fno-use-cxa-atexit'
@@ -120,17 +131,17 @@ class ToolChain( base.ToolChain ):
         
 
         # 
-        self._base_release.firstobjs    = '_BUILT_DIR_.xsrc/pico-sdk/src/rp2_common/pico_standard_link _BUILT_DIR_.xsrc/pico-sdk/src/rp2_common/pico_stdio_usb'
-
+        self._base_release.firstobjs    = '_BUILT_DIR_.xsrc/pico-sdk/src/rp2_common/pico_standard_link'
+        self._base_release.lastobjs     = 'cyw43_resource.o'
 
         # Optimized options, flags, etc.
-        self._optimized_release.cflags     = self._optimized_release.cflags + r' -DCFG_TUSB_DEBUG=0 -DNDEBUG -DPICO_CMAKE_BUILD_TYPE=\"Release\"'
         self._optimized_release.linkflags  = self._optimized_release.linkflags + ' -DNDEBUG'
 
         # Debug options, flags, etc.
-        self._debug_release.cflags     = self._debug_release.cflags + r' -DCFG_TUSB_DEBUG=1 -DDEBUG -DPICO_CMAKE_BUILD_TYPE=\"Debug\"'
+        self._debug_release.cflags     = self._debug_release.cflags + r' -DDEBUG -DPICO_CMAKE_BUILD_TYPE=\"Debug\"'
         self._debug_release.linkflags  = self._debug_release.linkflags + ' -DDEBUG'
         
+ 
    #--------------------------------------------------------------------------
     def link( self, arguments, inf, local_external_setting, variant ):
         # Finish creating the second state boot loader
@@ -159,11 +170,34 @@ class ToolChain( base.ToolChain ):
                variables  = {"generic_cmd":f'{self._pad_chksum}', "generic_cmd_opts":"-s 0xffffffff"} )
         self._ninja_writer.newline()
 
+
+        # create resource.o for the WIFI chip (contains the WiFi and BT firmware as a binary blob)
+        native_in = utils.standardize_dir_sep( self._path_cy43_firmware )
+        self._ninja_writer.build(
+               outputs    = self._cyw43_firmware_bin,
+               rule       = 'generic_cmd',
+               inputs     = native_in,
+               variables  = {"generic_cmd":'copy'} )
+        self._ninja_writer.newline()
+        
+        fwblob  = self._cyw43_firmware_bin.replace('.','_').replace('-','_')
+        fwblob2 = 'fw_' + fwblob[:fwblob.rfind('_')]
+        objcpy = f'-I binary -O elf32-littlearm -B arm --readonly-text --rename-section .data=.big_const,contents,alloc,load,readonly,data'
+        objcpy = f'{objcpy} --redefine-sym _binary_{fwblob}_start={fwblob2}_start'
+        objcpy = f'{objcpy} --redefine-sym _binary_{fwblob}_end={fwblob2}_end'
+        objcpy = f'{objcpy} --redefine-sym _binary_{fwblob}_size={fwblob2}_size'
+        self._ninja_writer.build(
+               outputs    = 'cyw43_resource.o',
+               rule       = 'objcpy_rule',
+               inputs     = self._cyw43_firmware_bin,
+               variables  = {"objcpy_opts":objcpy} )
+        self._ninja_writer.newline()
+
         # Run the linker
-        base.ToolChain.link(self, arguments, inf, local_external_setting, variant, ['bs2_default_padded_checksummed.S'], outname=self._final_output_name + ".elf" )
+        base.ToolChain.link(self, arguments, inf, local_external_setting, variant, ['bs2_default_padded_checksummed.S','cyw43_resource.o'], outname=self._final_output_name + ".elf" )
 
 
-        # Generate the .BIN file
+       # Generate the .BIN file
         self._ninja_writer.build(
                outputs    = self._final_output_name + ".bin",
                rule       = 'objcpy_rule',
@@ -207,12 +241,12 @@ class ToolChain( base.ToolChain ):
     def finalize( self, arguments, builtlibs, objfiles, local_external_setting, linkout=None ):
         self._ninja_writer.default( [self._final_output_name + ".uf2", self._final_output_name + ".dis", "bs2_default.dis", "dummy_printsize_final"] )
 
+        
 
     #--------------------------------------------------------------------------
     def get_asm_extensions(self):
         extlist = [ self._asm_ext, self._asm_ext2 ]
         return extlist
-
 
     # Because Windoze is pain!
     def _build_ar_rule( self ):
