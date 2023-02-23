@@ -470,15 +470,14 @@ class ToolChain:
             link_inputs.extend( extra_inputs_list) 
 
         # Normalize the directory separator
-        ldopts = utils.standardize_dir_sep( ldopts, self._os_sep )
+        ldopts = self._link_ldopts_standardize_dir_sep( ldopts )
         final_link_inputs = []
         for i in link_inputs:
             final_link_inputs.append( utils.standardize_dir_sep( i, self._os_sep ) )
-
+        
         # Build implicit list
         impl_list = libs
         impl_list.extend( objfiles) 
-
         self._ninja_writer.build(
             outputs    = outname,
             rule       = 'link',
@@ -492,6 +491,9 @@ class ToolChain:
     def finalize( self, arguments, builtlibs, objfiles, local_external_setting, linkout=None ):
         self._ninja_writer.default( self._final_output_name )
         
+    def _link_ldopts_standardize_dir_sep( self, ldopts ):
+        return utils.standardize_dir_sep( ldopts, self._os_sep )
+
     #==========================================================================
     # Private Methods
     #==========================================================================

@@ -87,3 +87,9 @@ class ToolChain( base.ToolChain ):
 
     def _build_ar_rule( self ):
         self._win32_build_ar_rule()
+
+    def _build_link_rule( self ):
+        self._build_withrspfile_link_rule()
+
+    def _link_ldopts_standardize_dir_sep( self, ldopts ):
+        return ldopts # NOT needed for the Mickey Soft compiler
