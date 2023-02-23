@@ -45,13 +45,9 @@ from .my_globals import NQBP_NAME_LIBDIRS
 
 # 
 usage = """ 
-(N)ot (Q)uite (B)env/(P)ython Build Script
+(N)ot (Q)uite (B)env/(P)ython - GEN2 - Build Script
 ===============================================================================
 Usage: nqbp [options] [-b variant] 
-       nqbp [options] [-b variant] -d DIR
-       nqbp [options] [-b variant] -f FILE
-       nqbp [options] [-b variant] -s DIR [-e DIR]
-       nqbp [options] [-b variant] -m [-d DIR | -f FILE]
 
 Arguments:
   -b variant       Builds the specified configuration/variant instead of the 

@@ -5300,7 +5300,7 @@ html .solidborders td {  border: 1px solid black; }</pre>
 <div modified="20141012050804006" title="$:/state/sidebar">
 <pre>no</pre>
 </div>
-<div modified="20141020024512017" title="$:/state/tab--1498284803">
+<div modified="20230223182050115" title="$:/state/tab--1498284803">
 <pre>$:/core/ui/AdvancedSearch/Standard</pre>
 </div>
 <div modified="20141019033603196" title="$:/state/tab--1963855381">
@@ -5324,7 +5324,7 @@ html .solidborders td {  border: 1px solid black; }</pre>
 <div modified="20141012032539330" title="$:/state/tab/sidebar--1835078512">
 <pre>$:/core/ui/SideBar/More</pre>
 </div>
-<div modified="20141019033555929" title="$:/state/tab/sidebar--2063883831">
+<div modified="20230223182040030" title="$:/state/tab/sidebar--2063883831">
 <pre>$:/_settings</pre>
 </div>
 <div modified="20141016040107539" title="$:/state/tabs/controlpanel/toolbars-1345989671">
@@ -5339,23 +5339,23 @@ html .solidborders td {  border: 1px solid black; }</pre>
 <div modified="20200421034642586" title="$:/state/toc/Contents-Overview--1025088837">
 <pre>open</pre>
 </div>
-<div modified="20211205170104780" title="$:/state/toc/Contents-Overview--242358753">
-<pre>close</pre>
+<div modified="20230223163519825" title="$:/state/toc/Contents-Overview--242358753">
+<pre>open</pre>
 </div>
 <div modified="20200421034638993" title="$:/state/toc/Contents-Using NQBP--1025088837">
 <pre>open</pre>
 </div>
-<div modified="20211205170103960" title="$:/state/toc/Contents-Using NQBP--242358753">
-<pre>close</pre>
+<div modified="20230223163814316" title="$:/state/toc/Contents-Using NQBP--242358753">
+<pre>open</pre>
 </div>
 <div modified="20190112022928289" title="$:/state/toc/Overview-Using NQBP--242358753">
 <pre>open</pre>
 </div>
-<div list="[[Installing NQBP]] [[Selecting a ToolChain]] [[Running NQBP]] [[Preprocessing Scripts]] Linking [[External Package Model]] Overview [[Selecting What To Build]] [[Adding a new Toolchain]]" title="$:/StoryList">
+<div list="Overview" title="$:/StoryList">
 <pre></pre>
 </div>
-<div created="20141011164829984" modified="20141020024516096" title="$:/temp/advancedsearch">
-<pre>Outcast</pre>
+<div created="20141011164829984" modified="20230223182055765" title="$:/temp/advancedsearch">
+<pre>lo</pre>
 </div>
 <div plugin-type="info" title="$:/temp/info-plugin" type="application/json">
 <pre>{
@@ -5485,8 +5485,10 @@ html .solidborders td {  border: 1px solid black; }</pre>
 # In the file //toolchain_name// create a new python class that inherits from &lt;code&gt;base.~ToolChain&lt;/code&gt; and that  implements the details for your compiler. 
 # Create a templace file name //toolchain_name mytoolchain// in the same directory as the //toolchain_name// file.  This file is the template for a project's &lt;code&gt;mytoolchain.py&lt;/code&gt; file that will be using the new compiler toolchain.</pre>
 </div>
-<div created="20200421035359045" modified="20200501230759063" tags="Usage [[Using NQBP]]" title="External Package Model">
+<div created="20200421035359045" modified="20230223164036481" tags="Usage [[Using NQBP]]" title="External Package Model">
 <pre>NQBP supports multiple models for how external source code is handled.  The model is selected by setting the environment variable `NQBP_XPKG_MODEL`.  If the variable is not set (or set to unsupported value), then the external source model is set to `legacy`
+
+''UPDATE'': the `outcast` and `mixed` models are no longer being support, i.e. YMMV when using these models.
 
 * `legacy`
 ** All source code including external/third-party is located in under a single root directory, i.e. the //Package// directory.
@@ -5502,11 +5504,12 @@ html .solidborders td {  border: 1px solid black; }</pre>
 * `mixed`
 ** Attempts to support Outcast //referencing// of the `xpkgs/` and `xinc/` directories while using the //legacy// model.  This model is ''experimental'' and requires manual placement of the external Outcast packages into the single root directory.  ''Do NOT use this model unless you truly know what you are doing''.</pre>
 </div>
-<div created="20140727042146669" creator="JohnTaylor" modified="20211205170043460" modifier="JohnTaylor" tags="Overview" title="Installing NQBP">
+<div created="20140727042146669" creator="JohnTaylor" modified="20230223163741310" modifier="JohnTaylor" tags="Overview" title="Installing NQBP">
 <pre>!!TODO: specific install instructions once hosted on somewhere on the web
 
 !!General Instructions:
-# First install [[Python 3.x|http://www.python.org]].  
+# Install [[Ninja|https://ninja-build.org/]] and update the command path to include the executable's directory.
+# Install [[Python 3.x|http://www.python.org]].  
 # Unzip the tar/zip file to directory of your choosing on your box.  A single installation of the NQBP files can be shared across multi-users and/or multiple projects/workspaces on a single box.
 # NQBP requires the following environment variables to be set:
 
@@ -5540,10 +5543,10 @@ __''//Table-of-Contents//''__
 &lt;/div&gt;
 &lt;/$scrollable&gt;</pre>
 </div>
-<div created="20141012051416399" modified="20141019022528737" title="LeftTitle">
+<div created="20141012051416399" modified="20230223182122882" title="LeftTitle">
 <pre>|noborders|k
 |&lt;p style=&quot;margin-bottom:0px; margin-top:0px;&quot;&gt;[img[logo.gif]] &lt;/p&gt;|
-|&lt;p style=&quot;margin-bottom:0px; margin-top:0px; font-size:1.3em&quot;&gt;//{{$:/SiteSubtitle}}// &lt;/p&gt; |</pre>
+|&lt;p style=&quot;margin-bottom:0px; margin-top:0px; font-size:1.3em&quot;&gt;//{{$:/SiteSubtitle}}2// &lt;/p&gt; |</pre>
 </div>
 <div created="20140726150234197" creator="JohnTaylor" modified="20141016042323597" modifier="JohnTaylor" tags="Contents" title="Licensing">
 <pre>The license [[file|file:./license.txt]] can be found in the `top/`directory of the package.
@@ -5580,10 +5583,10 @@ The NQB concept worked well - especially for embedded development or smallish pr
 
 //For those who are overly curious the 'Not-Quite' paradigm was inspired by Not-Quite-C.  I'll leave the details/origins of NQC to the readers.//</pre>
 </div>
-<div created="20140726152202471" creator="JohnTaylor" modified="20200421040803033" modifier="JohnTaylor" tags="Contents" title="Overview">
+<div created="20140726152202471" creator="JohnTaylor" modified="20230223182001259" modifier="JohnTaylor" tags="Contents" title="Overview">
 <pre>!NQBP stands for (N)ot (Q)uite (B)env - (P)ython.  
 
-!!NQBP is a multi-host build engine designed for:
+!!NQBP Gen2 is a multi-host build engine designed for:
 
 * C, C++, and assembler builds
 * Embedded development (but not limited to)
@@ -5593,14 +5596,8 @@ The NQB concept worked well - especially for embedded development or smallish pr
 * Supporting many Compiler toolchains
 * Source code resusablilty, i.e. NQBP assumes that code is/will be shared across many projects.
 * Resusablilty of Compiler toolchains, i.e once a particular compiler toolchain has been created/defined - it can be reused across an unlimited number of projects.
-* Very effective on small to medium size projects
-* Supports building in [[Outcast|http://integerfox.com/outcast/index.html]] as well as its //Legacy// model for external source code.
+* Very effective on all sizes of projects.
 
-
-!!NQBP is not:
-
-* A make based build engine.  In fact ''NQBP does no dependency/what-has-changed checking at all!''
-* An optimal choice for large (+100KLOC) projects 
 
 For those interested the back story for NQBP can be found [[here|NQBP History]].
 
@@ -5660,66 +5657,47 @@ if __name__ == '__main__':
 
 ```</pre>
 </div>
-<div created="20190112023225659" modified="20190112023323587" tags="[[Using NQBP]] Usage" title="Running NQBP">
+<div created="20190112023225659" modified="20230223164447156" tags="[[Using NQBP]] Usage" title="Running NQBP">
 <pre>!Running NQBP
 * Running the python script &lt;code&gt;nqbp.py&lt;/code&gt; with no options will do the following:
 ** Clean all derived objects for the //release// build
 ** Build all objects and outputs for the //release// build
 *NQBP supports the concepts for different build configurations.  The default configuration is the //release// configuration.  
-**The final output for each configuration will be placed into different folders under the project directory.  However, the derived objects share a common directory tree across the build configuration, so be careful to clean the derived objects when switching between build configurations,
+
 ** ''Building with //debug// enabled is __not__ consider an build configuration''
-* NQBP has numerous build options for modify the basic behavior, i.e. enable debug, selectively build directories and files, suppress cleaning, etc.  Type &lt;code&gt;nqbp -h&lt;/code&gt; for list of options.
+* NQBP has numerous build options for modify the basic behavior, e.g. enable debug, defining preprocessor symbols, etc. Type &lt;code&gt;nqbp -h&lt;/code&gt; for list of options.
 
 !!NQBP build options
 Note: This is just a snapshot of the current options, i.e. your option list may be different
 
 ```
-(N)ot (Q)uite (B)env/(P)ython Build Script
+(N)ot (Q)uite (B)env/(P)ython - GEN2 - Build Script
 ===============================================================================
 Usage: nqbp [options] [-b variant]
-       nqbp [options] [-b variant] -d DIR
-       nqbp [options] [-b variant] -f FILE
-       nqbp [options] [-b variant] -s DIR [-e DIR]
-       nqbp [options] [-b variant] -m [-d DIR | -f FILE]
 
 Arguments:
-  -b variant       Builds the speficied configuration/varinst instead of the
+  -b variant       Builds the specified configuration/variant instead of the
                    release build. What 'variants' are available is Toolchain
                    specific. The default is variant is determined by the
                    mytoolchain.py script.
+  --try variant    Same as the '-b' option, except that if the variant does not
+                   exist - the script does not report a failure on exit.
   --bld-all        Builds all variants.  Does NOT build variants that start
                    with a leading '_'.
-  -d DIR           Compile ONLY the specified directory relative to the pkg
-                   root. If 'DIR' starts with a directory seperator ('\' or
-                   '/') then the directory is relative to the package root. If
-                   'DIR' starts with a double directory seperator ('\\' or
-                   '//') then the directory is relative to the workspace root.
-  -f FILE          Compile ONLY the specified file relative to the pkg root.
-                   If 'FILE' starts with a directory seperator ('\' or '/'
-                   then the file is relative to the package root. If 'FILE'
-                   starts with a double directory seperator ('\\' or
-                   '//') then the file is relative to the workspace root. A
-                   'FILE' in the project directory can be compile by prefixing
-                   'FILE' with './' or '.\' (i.e. current directory).
-  -s DIR           Skips all entries in libdirs.b BEFORE 'DIR', i.e. start with
-                   'DIR'.  Note: 'DIR' is with respect to the expanded list of
-                   directories, i.e. after any included libdirs.b files are
-                   expanded.
-  -e DIR           Skip all entries in libdirs.b AFTER 'DIR', i.e. stop
-                   building directories once 'DIR' has been built. Note: 'DIR'
-                   is with respect to the expanded list of directories, i.e.
-                   after any included libdirs.b files are expanded.
-  -p               Skips all external directories and/or libdirs.b files.
-  -x               Skips all the package's directories and/or libdirs.b files
-  -a, --noabs      Skips (and does not clean) all absolute directories
-  -m               Compiles all of the project directory.
+  -c               Perform a clean operation before starting the build
   -g               Debug build (default is release build.
   -v               Display Compiler/linker options.
-  -l               Link ONLY (can be combinded with '-mpxdfse' options).
-  -k               Cleans only the package's objects/files (use with '-p')
-  -j               Cleans only the external objects/files (use with '-x').
-  -1               Suppresses the use of multiple processes when building.
-  -t, --turbo      Uses multiple process to build directories in parallel.
+  --bldnum M       Passes 'M' as build number information for the build.
+                   [Default: 0].
+  --bldtime        Sets the preprocessor symbol BUILD_TIME_UTC to the Host's
+                   current time (else the symbol is set to 0).  Note: When
+                   option is enable it will trigger a full rebuild, i.e.
+                   typically only enabled when do a CI/formal build.
+  --def1 SYM1      Defines (as a compiler option) the preprocessor 'SYM1'.
+  --def2 SYM2      Defines (as a compiler option) the preprocessor 'SYM2'.
+  --def3 SYM3      Defines (as a compiler option) the preprocessor 'SYM3'.
+  --def4 SYM4      Defines (as a compiler option) the preprocessor 'SYM4'.
+  --def5 SYM5      Defines (as a compiler option) the preprocessor 'SYM5'.
   -z, --clean-all  Cleans ALL files for ALL build configurations and then exits
   --debug          Enables debug info internally to NQBP.
   --qry            Outputs the current project directory (does nothing else)
@@ -5729,13 +5707,10 @@ Arguments:
                    (no build is performed).
   --qry-dirs       Displays the list of directories (in order, for the selected
                    build variant) referenced in the libdirs.b file.
+  --qry-dirs2      Same as --qry-dirs with the addition of the any source file
+                   include/exclude info
   -h,--help        Display help.
   --version        Display version number.
-
-Notes:
-    Default operation is to do an implicit BUILD ALL and CLEAN ALL on each
-    build.  The exception to this rule is when one of the following options are
-    specified: -d, -f, -s, -e, -p, -x, -m, -l, -k, -j
 ```</pre>
 </div>
 <div created="20190112022741129" modified="20190112023013594" tags="[[Using NQBP]] Usage" title="Selecting a ToolChain">
@@ -5745,7 +5720,7 @@ Notes:
 * Make a copy of the file &lt;code&gt;nqbp/nqbp.py&lt;/code&gt; and place it in your project directory
 </pre>
 </div>
-<div created="20190112023024780" modified="20211205164015213" tags="[[Using NQBP]] Usage" title="Selecting What To Build">
+<div created="20190112023024780" modified="20230223170520478" tags="[[Using NQBP]] Usage" title="Selecting What To Build">
 <pre>* In a project directory, create a file named &lt;code&gt;libdirs.b&lt;/code&gt;.  This file contains a list of all source code directories to be built
 ** Directories are referenced relative to the //package// root directory
 ** An entry in the file can reference another &lt;code&gt;libdirs.b&lt;/code&gt; file within the &lt;code&gt;projects/&lt;/code&gt; directory tree.  The syntax for this is to use relative directory path qualifer to the reference &lt;code&gt;libdirs.b&lt;/code&gt; file.  //Alternatively//, you can use the relative-to-package-root syntax. See examples below.
@@ -5777,10 +5752,7 @@ src/foobar &lt; hello.c world.cpp
 # Include a common libdirs.b file (use relative-to-the-package root syntax)
 /top/my_common_libdirs.b
 
-# Outcast model enabled, build PkgB's src/bob directory (e.g.. relative-to-the- workspace root)
-//PkgB/src/bob
-
-# Legacy model enabled, build the third-party module Uncle under the xsrc/ directory
+# build the third-party module Uncle under the xsrc/ directory
 xsrc/Uncle/src
 
 # Build an using an absolute path that the base path is specified by an environment variable
