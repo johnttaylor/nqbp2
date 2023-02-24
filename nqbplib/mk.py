@@ -60,6 +60,7 @@ Arguments:
                    with a leading '_'.
   -c               Perform a clean operation before starting the build
   -g               Debug build (default is release build.
+  -1               Suppresses parallel building.
   -v               Display Compiler/linker options.
   --bldnum M       Passes 'M' as build number information for the build. 
                    [Default: 0].   
@@ -237,8 +238,12 @@ def do_build( printer, toolchain, arguments, variant ):
         ninja_file.close()
         
         # Run ninja
-        verbose = '-v' if arguments['-v'] else ''
-        utils.run_shell2( f"ninja {verbose}", True, "ERROR: Build failed." )
+        ninja_opts = ''
+        if ( arguments['-v'] ):
+            ninja_opts = '-v'
+        if ( arguments['-1'] ):
+            ninja_opts = ninja_opts + ' -j 1'
+        utils.run_shell2( f"ninja {ninja_opts}", True, "ERROR: Build failed." )
 
     # Output end banner
     end_banner(printer, toolchain)

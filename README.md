@@ -9,8 +9,8 @@ NQBP (Gen2) is a multi-host build engine designed for:
 - Full dependency checking and incremental builds
 - Command line based
 - Supporting many Compiler toolchains
-- Source code resusablilty, i.e. NQBP assumes that code is/will be shared across many rojects.
-- Resusablilty of Compiler toolchains, i.e once a particular compiler toolchain has beencreated/defined - it can be reused across an unlimited number of projects.
+- Source code resusablilty, i.e. NQBP assumes that code is/will be shared across many projects.
+- Resusablilty of Compiler toolchains, i.e once a particular compiler toolchain has been created/defined - it can be reused across an unlimited number of projects.
 - Very effective on all sizes of projects
 
 
@@ -45,11 +45,11 @@ To port an existing custom toolchain you will need to be familiar with _ninja_
 tool and how it works (but you don't need to be expert or even advanced user
 of ninja).  
 
-Here is list of variables in the toolchain _class_ that have changed in their
+Here is the list of variables in the toolchain _class_ that have changed in their 
 usage and/or expected content.
 ```
-self._ar_opts
-self._link_output
+self._link_output           // Need to remove specifying the output file
+self._ar_opts               // Need to remove specifying the output file
 self._base_release.cflags   // Need to remove -D BUILD_TIME_UTC
 self._ar_out                // New
 self._rm                    // New
@@ -81,14 +81,27 @@ when used, sets `BUILD_TIME_UTC` to the current build time (instead of `0`).  Th
 intent here is that formal builds would use the `--bldtime` switch, and developer 
 build would not.
 
+### Command Line Options
+NQBP Gen2 has fewer command line options, i.e. eliminated all of the _classic_
+options to perform manual incremental builds. In addition the `-t,--turbo` option
+has been removed because ninja's default model is build everything in parallel. If
+you have any scripts (e.g. CI build scripts) that invoked NQBP with any of the
+deprecated command line options - you will need to update those scripts.  Type
+`nqbpy.py -h` to get the list of currently supported command line options.
+
+__Note__: The `-1` option (performs a sequential build) is still available in Gen2.
+
+
 ### Performance
 NQBP Gen2 is faster on a build-all than NQBP classic.  In my tests Gen2 ranges 
-between 20% to 50% faseter - depending on the size of the project, PC specs, etc.
-However, in general larger projects have a larger performance increase.
+between 10% to 50% faster - depending on the size of the project, PC specs, CI
+build vs developer build, etc. Developer builds see the biggest performance
+increase because there is less console output/logging.
 
 ### TODO
 The toolchains listed below have been ported to NQBP Gen2 - but I have not verified
-the toolchains (I no longer have the compilers installed on my PC).
+the toolchains (I no longer have the compilers installed on my PC).  In addition,
+these toolchains need to be updated to use response files when building.
 
 - `nqbp2\nqbplib\toolchains\windows\arm_m4_arduino\nrf52_feather52.py`
 - `nqbp2\nqbplib\toolchains\windows\avr_gcc_arduino\atmega328p_uno.py`
