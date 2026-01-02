@@ -23,13 +23,20 @@
   },
   "publish": {
     "current": {
-      "comment": "Minor updates to better support CI environements (on Windozes boxes)",
-      "version": "1.0.1",
-      "date": "Sun May 25 22:15:11 2025",
-      "timestamp": 1748211311,
-      "changes": null
+      "comment": "Add more toolchains and other support for the KIT Library",
+      "version": "1.1.0",
+      "date": "Fri Jan  2 19:59:01 2026",
+      "timestamp": 1767383941,
+      "changes": "\"1) Added new toolchains\\n  1.1) Linux Host\\n\\t1.1.1) Raspberry PI Pico, sdk-2.x (RP2xxx)\\n\\t1.1.2) ARM Cross compiler for STM32\\n  1.2) Windows\\n\\t1.2.1) Raspberry PI Pico, sdk-2.x (RP2xxx)\\n\\t1.2.2) Clang Host with msvc backend\\n2) Added new/alternate FSM support using Plant UML and StateSmith\\n3) Added Code Coverage support for Kit Library using LCOV\\n4) Minor clean-up\\n5) Added more pattern filters to chuck.py\\n6) Added sancho.py script for more VSCode integration\""
     },
     "history": [
+      {
+        "comment": "Minor updates to better support CI environements (on Windozes boxes)",
+        "version": "1.0.1",
+        "date": "Sun May 25 22:15:11 2025",
+        "timestamp": 1748211311,
+        "changes": null
+      },
       {
         "comment": "Add support for building the Catch2 static library.  NOTE: This is breaking change to the 'preprocess' build script (new/different args)",
         "version": "1.0.0",
