@@ -57,10 +57,10 @@ NOTES:
     o The environment variable SINELABORE_PATH is required/used to specify
       the location of the Sinelabore code generator JAR files (and it 
       supporting JAR files).
-        o The NQBP_FSM_COPYRIGHT_FILE environment variable may be set to the path of
-            a text file containing the copyright text to use.
-        o The NQBP_FSM_OSAL environment variable selects the default OSAL (CPL or
-            KIT); defaults to KIT. The -t option overrides this environment variable.
+    o The NQBP_FSM_COPYRIGHT_FILE environment variable may be set to the path of
+      a text file containing the copyright text to use.
+    o The NQBP_FSM_OSAL environment variable selects the default OSAL (CPL or
+      KIT); defaults to KIT. The -t option overrides this environment variable.
     o The script assumes that Graphviz's dot.exe is in the command path.
       GraphViz is used to generated the FSM diagram for Doxygen. See 
       http://www.graphviz.org

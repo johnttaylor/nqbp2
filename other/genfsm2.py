@@ -66,15 +66,21 @@ EXAMPLES:
 NOTES:
     o Requires that the StateSmith `ss.cli` utility is installed and available
       in the command path. https://github.com/StateSmith/StateSmith
-        o The NQBP_FSM_COPYRIGHT_FILE environment variable may be set to the path of
-            a text file containing the copyright text to use.
-        o The NQBP_FSM_OSAL environment variable selects the default OSAL (CPL or
-            KIT); defaults to KIT. The -t option overrides this environment variable.
+    o A literal '\\n' in a transition/behavior label is a PlantUML line break. 
+      It is rendered as such in the diagram, but is replaced with a space before
+      the diagram is passed to StateSmith. The exceptions are '\\n' inside a
+      { ... } action block or a "..." string. Use '\\\\n' to emit a C/C++
+      newline escape in action code, e.g. log("done\\\\n");
+    o The NQBP_FSM_COPYRIGHT_FILE environment variable may be set to the path of
+      a text file containing the copyright text to use.
+    o The NQBP_FSM_OSAL environment variable selects the default OSAL (CPL or
+      KIT); defaults to KIT. The -t option overrides this environment variable.
 """
 #
 import subprocess
 import re
 import sys
+import tempfile
 
 VERSION = "0.0.1"
 
@@ -175,6 +181,111 @@ def _generate_fsm_svg( puml_dir ):
     except Exception as e:
         print( f"Note: SVG generation failed: {e}" )
 
+
+#------------------------------------------------------------------------------
+def _replace_label_newlines( line ):
+    """Replace literal PlantUML '\\n' line breaks except in actions and strings."""
+    out       = []
+    depth     = 0
+    in_string = False
+    i         = 0
+    while i < len( line ):
+        c = line[i]
+        if in_string:
+            if c == '\\' and i + 1 < len( line ):
+                out.append( line[i:i + 2] )
+                i += 2
+                continue
+            if c == '"':
+                in_string = False
+        elif c == '"':
+            in_string = True
+        elif c == '{':
+            depth += 1
+        elif c == '}':
+            depth = max( 0, depth - 1 )
+        elif c == '\\' and line.startswith( '\\n', i ) and depth == 0:
+            out.append( ' ' )
+            i += 2
+            continue
+        elif c == '\\' and line.startswith( '\\\\', i ):
+            out.append( '\\\\' )
+            i += 2
+            continue
+        out.append( c )
+        i += 1
+    return ''.join( out )
+
+def _sanitize_puml_for_statesmith( text ):
+    """Sanitize label line breaks, preserving comments and their line endings."""
+    out        = []
+    in_comment = False
+    for line in text.splitlines( keepends=True ):
+        stripped = line.strip()
+        if in_comment:
+            if "'/" in stripped:
+                in_comment = False
+            out.append( line )
+            continue
+        if stripped.startswith( "/'" ):
+            if "'/" not in stripped[2:]:
+                in_comment = True
+            out.append( line )
+            continue
+        if stripped.startswith( "'" ):
+            out.append( line )
+            continue
+        out.append( _replace_label_newlines( line ) )
+    return ''.join( out )
+
+def _mtime_ns( path ):
+    try:
+        return os.stat( path ).st_mtime_ns
+    except OSError:
+        return None
+
+def _run_statesmith( fsmdiag, nosim, verbose ):
+    """Run StateSmith on a sanitized temporary copy and fail on incomplete output."""
+    puml_dir = os.path.dirname( os.path.abspath( fsmdiag ) )
+    base     = os.path.splitext( os.path.basename( fsmdiag ) )[0]
+    outputs  = [ os.path.join( puml_dir, base + ".h" ), os.path.join( puml_dir, base + ".cpp" ) ]
+    before   = { path: _mtime_ns( path ) for path in outputs }
+
+    with open( fsmdiag, encoding="utf-8" ) as source:
+        sanitized = _sanitize_puml_for_statesmith( source.read() )
+
+    tmp = tempfile.NamedTemporaryFile( mode="w", encoding="utf-8", prefix=f".{base}.genfsm2-",
+                                       suffix=".puml", dir=puml_dir, delete=False )
+    try:
+        tmp.write( sanitized )
+        tmp.close()
+
+        cmd = "ss.cli run --lang Cpp --no-csx --rebuild"
+        if nosim:
+            cmd += " --no-sim-gen"
+        if verbose:
+            cmd += " -v"
+        cmd += f' "{tmp.name}"'
+        if verbose:
+            print( f"Running StateSmith command: {cmd}" )
+
+        p = subprocess.Popen( cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                              text=True, encoding="utf-8", errors="replace" )
+        output = []
+        for line in p.stdout:
+            console_encoding = sys.stdout.encoding or "utf-8"
+            console_line = line.encode( console_encoding, errors="replace" ).decode( console_encoding )
+            print( console_line, end="", flush=True )
+            output.append( line )
+        p.wait()
+    finally:
+        os.unlink( tmp.name )
+
+    output = ''.join( output )
+    stale  = [ path for path in outputs if _mtime_ns( path ) is None or _mtime_ns( path ) == before[path] ]
+    if p.returncode != 0 or "Finished with failure" in output or stale:
+        exit( f"ERROR: StateSmith failed to generate code for {fsmdiag} (see the StateSmith output above)." )
+
 #------------------------------------------------------------------------------
 # Parse command line
 def run( argv, copyright=None ):
@@ -209,18 +320,7 @@ def run( argv, copyright=None ):
         exit(0)
     
     # Run the StateSmith code generator
-    cmd = "ss.cli run --lang Cpp --no-csx --rebuild"
-    if args['--nosim']:
-        cmd += " --no-sim-gen"
-    if args['-v']:
-        cmd += " -v"
-    cmd += f" {fsmdiag}"
-    if args['-v']:
-        print(f"Running StateSmith command: {cmd}")
-    p = subprocess.Popen( cmd, shell=True )
-    p.communicate()
-    if p.returncode != 0:
-        exit("ERROR: StateSmith encountered an error or failed to run." )
+    _run_statesmith( fsmdiag, args['--nosim'], args['-v'] )
 
     # (Re)generate the FSM diagram's SVG from the PlantUML source.
     _generate_fsm_svg( os.path.dirname( os.path.abspath( fsmdiag ) ) )
