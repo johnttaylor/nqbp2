@@ -36,7 +36,7 @@ sys.argv[1] = 'Example1'
 sys.argv[2] = 'Rte::Db::Record'
 genfsm_base.run( sys.argv )
 
-# Generate FSM#2, where [1]:= Diagram name, [2]:= Namespace(s), [3]:= Size of the event queue, [4]:= Target OSAL (default is CPL)
+# Generate FSM#2, where [1]:= Diagram name, [2]:= Namespace(s), [3]:= Size of the event queue, [4]:= Target OSAL (default is KIT or NQBP_FSM_OSAL)
 #sys.argv[1] = 'Example2'
 #sys.argv[2] = 'Rte::Db::Record'
 #sys.argv[3] = '-d 4'

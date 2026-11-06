@@ -49,7 +49,7 @@ Options:
   -d NEVENTS       When NEVENTS is greater then 0 code for an event queue is 
                    generated where NEVENTS is the size of the event queue. 
                    [Default: 0]
-  -t OSAL          Specify which supported OSAL to use [Default: CPL]
+  -t OSAL          Specify which supported OSAL to use
   -h, --help       Display command help.
         
          
@@ -57,6 +57,10 @@ NOTES:
     o The environment variable SINELABORE_PATH is required/used to specify
       the location of the Sinelabore code generator JAR files (and it 
       supporting JAR files).
+        o The NQBP_FSM_COPYRIGHT_FILE environment variable may be set to the path of
+            a text file containing the copyright text to use.
+        o The NQBP_FSM_OSAL environment variable selects the default OSAL (CPL or
+            KIT); defaults to KIT. The -t option overrides this environment variable.
     o The script assumes that Graphviz's dot.exe is in the command path.
       GraphViz is used to generated the FSM diagram for Doxygen. See 
       http://www.graphviz.org
@@ -133,7 +137,7 @@ def run( argv, copyright=None ):
     sargs = ' '.join( args['<sinelabore>'] )
 
     # Validate target OSAL
-    osal = args['-t'].strip()
+    osal = (args['-t'] or os.environ.get("NQBP_FSM_OSAL", "KIT")).strip()
     if osal not in supported_osals:
         exit(f"ERROR: Unsupported OSAL ({osal}) specified. Use 'genfsm osal' to see supported OSALs.")
 
@@ -149,9 +153,16 @@ def run( argv, copyright=None ):
     if ( sinpath == None ):
         exit( "ERROR: The SINELABORE_PATH environment variable is not set." )
 
-    # Set copyright header (either explicit or based on OSAL)
-    if ( copyright != None ):
+    # Set copyright header from the explicit argument, environment file, or OSAL.
+    copyright_file = os.environ.get("NQBP_FSM_COPYRIGHT_FILE")
+    if copyright is not None:
         copyright_header = copyright
+    elif copyright_file:
+        try:
+            with open(copyright_file, encoding="utf-8") as copyright_source:
+                copyright_header = copyright_source.read()
+        except OSError as e:
+            exit(f"ERROR: Cannot read NQBP_FSM_COPYRIGHT_FILE ({copyright_file}): {e}")
     else:
         copyright_header = copyright_headers[osal]
 
