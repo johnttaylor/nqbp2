@@ -118,6 +118,11 @@ def run_shell2( cmd, stdout=False, on_err_msg=None, timeout=None ):
         timed_out = True
         _kill_process_tree( p )
         r = p.communicate()   # 2nd call is needed to drain the pipes/reap the child
+    except KeyboardInterrupt:
+        if ( new_session ):
+            _kill_process_tree( p )
+            p.communicate()
+        raise
 
     r0 = '' if r[0] == None else r[0].decode()
     r1 = '' if r[1] == None else r[1].decode()
@@ -305,7 +310,13 @@ def sorted_libdirs( libdirs ):
     the fully expanded list, so that the build/link order and every display of
     that order are identical and host independent.
     """
-    return sorted( libdirs, key=lambda e: (e[0][0].lower(), e[0][0]) )
+    return sorted(
+        libdirs,
+        key=lambda e: (
+            e[0][0].replace("\\", "/").lower(),
+            e[0][0].replace("\\", "/"),
+        ),
+    )
 
 #-----------------------------------------------------------------------------
 def run_pre_processing_script( printer, current_dir, work_root, pkg_root, prj_dirname, preprocess_script, preprocess_args, variant, debug_opt, build_clean="build", verbose=False ):
