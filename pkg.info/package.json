@@ -23,13 +23,20 @@
   },
   "publish": {
     "current": {
-      "comment": "Tweaks/clean-up to the sancho.py script",
-      "version": "1.1.1",
-      "date": "Sat Jan  3 22:04:41 2026",
-      "timestamp": 1767477881,
+      "comment": "additional refinements from the Kit.Core",
+      "version": "1.1.2",
+      "date": "Fri Nov  6 15:19:50 2026",
+      "timestamp": 1793978390,
       "changes": null
     },
     "history": [
+      {
+        "comment": "Tweaks/clean-up to the sancho.py script",
+        "version": "1.1.1",
+        "date": "Sat Jan  3 22:04:41 2026",
+        "timestamp": 1767477881,
+        "changes": null
+      },
       {
         "comment": "Add more toolchains and other support for the KIT Library",
         "version": "1.1.0",
