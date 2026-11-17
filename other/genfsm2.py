@@ -726,6 +726,14 @@ def update_generated_header():
                 if stripped_line.startswith( "void" ) and not stripped_prev.startswith("///" ):
                     outf.write( "    /// State Machine function\n" )
 
+                # Add comments for the generated ID counts unless StateSmith already did so.
+                count_match = re.match( r"static\s+(?:const|constexpr)\s+\w+\s+(EventIdCount|StateIdCount)\s*=", stripped_line )
+                if count_match:
+                    previous_is_comment = stripped_prev.startswith( ("//", "/*", "*" ) ) or stripped_prev.endswith( "*/" )
+                    if not previous_is_comment:
+                        count_description = "event" if count_match.group( 1 ) == "EventIdCount" else "state"
+                        outf.write( f"    /// Number of defined {count_description} IDs.\n" )
+
                 # Output the (possibly modified) line
                 prev_line = line
                 outf.write( line.rstrip() + "\n" )

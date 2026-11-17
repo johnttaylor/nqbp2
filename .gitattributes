@@ -1,2 +1,20 @@
 top/* linguist-documentation
 tests/* linguist-documentation
+
+# Line endings: normalize text files to LF in the repository and working tree
+* text=auto eol=lf
+
+# Windows batch files require CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files
+ninja/ninja binary
+*.exe binary
+*.ico binary
+*.gif binary
+*.png binary
+*.jpg binary
+
+# Saved TiddlyWiki: its 'Mark of the Web' comment line must keep its CRLF
+top/start_here.html -text

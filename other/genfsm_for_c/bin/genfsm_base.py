@@ -281,8 +281,8 @@ def write_auto_contextClass( f, ctx_t, actions, guards ):
 
 #------------------------------------------------------------------------------
 def geneatedCodegenConfig( fname, base, ctx_t ):
-    cfg = '''Create inline doxygen of state machine function
-# Output configuration options for the given language. Pipe them into a file for further use!
+    cfg = '''Create inline doxygen of state machine function
+# Output configuration options for the given language. Pipe them into a file for further use!
 #
 #Allows to define naming conventions for events
 PrefixEvents=
@@ -295,7 +295,7 @@ PrefixCompositeStates=
 #
 #Allows to define naming conventions for choice states
 PrefixChoice=
-
+
 #
 #Path to 'dot.exe'.
 #DotPath="C:\\Program Files\\Graphviz2.22\\bin\\dot.exe"
@@ -320,7 +320,7 @@ DisplayEntryExitDoCode=yes
 NumberOfEntryExitDoCodeChars=32
 #
 #
-
+
 #Defines the text each generated file starts with.
 Copyright=$$COPYRIGHT$$
 #
@@ -335,7 +335,7 @@ TypeOfDbgString=const char
 #
 #If set to 'no' the data and time info is supressed in each file header
 IncludeDateFileHeaders=yes
-
+
 #
 #Prefix of the state machine function in the H file.
 StateMachineFunctionPrefixHeader=

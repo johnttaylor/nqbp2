@@ -5,4 +5,5 @@
 *.exe
 *.lst
 *.log
-
+.nqbp-configuration.json
+.vscode/

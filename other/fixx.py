@@ -2,7 +2,8 @@
 
 """
  
-Recursively finds files and updates GIT's index with the execute permissions.
+Recursively finds files and sets their execute permissions both locally (i.e.
+the working copy's file mode) and in GIT's index.
 ===============================================================================
 usage: fixx [options] <dir>
 
@@ -25,6 +26,7 @@ import sys
 import os
 import fnmatch
 import time
+import stat
 
 sys.path.append( os.path.dirname(__file__) + os.sep + ".." )
 
@@ -32,9 +34,16 @@ from nqbplib import utils
 from nqbplib.docopt.docopt import docopt
 
 
-FIXX_VERSION = "1.0"
+FIXX_VERSION = "1.1"
 
 #------------------------------------------------------------------------------
+def set_local_execute( fname ):
+    # Grant execute wherever read is granted (works on read-only files too).
+    # Windows has no execute bit, so the local file mode is left alone.
+    if ( os.name == 'nt' ):
+        return
+    mode = stat.S_IMODE( os.stat(fname).st_mode )
+    os.chmod( fname, mode | ((mode & 0o444) >> 2) )
         
         
 #------------------------------------------------------------------------------
@@ -63,5 +72,6 @@ if __name__ == '__main__':
     # Get superset of projects to build
     all = utils.walk_file_list( match, ppath )
     for f in all:
-        cmd = f'git update-index --chmod=+x {f}'
+        set_local_execute( f )
+        cmd = f'git update-index --chmod=+x "{f}"'
         result = utils.run_shell2( cmd, False )

@@ -12,17 +12,20 @@ Usage: tca2 [options] sum    [<filter-file>]
        tca2 [options] ciview [<filter-file>]
 
 Arguments:
-  sum              Generates a summary report of the code coverage.  A detailed 
-                   HTML report is generated in the current working directory.
-  view             Same as the 'sum' command but 'launches' the HTML report 
-                   instead of displaying a summary.
+  sum              Prints a summary of the code coverage.  No HTML report is
+                   generated.
+  view             Generates a detailed HTML coverage report (see --html-dir)
+                   and 'launches' it.
   ci               Generates a detailed HTML coverage report to be published
                    as part of a CI/CD pipeline.
   ciview           Same as the 'ci' command but also 'launches' the HTML report
 
-  <filter-file>    Specifies a JSON file that contains list of LCOV 'extract'
-                   and 'remove' patterns.  The default is filter for current
-                   build directory.
+  <filter-file>    Specifies a JSON file that contains lists of LCOV 'extract'
+                   and 'remove' patterns, e.g.
+                     { "extract": ["*/src/Foo/*"], "remove": ["*/_0test/*"] }
+                   Both keys are optional; a key that is present replaces the
+                   corresponding default pattern list.  The default is a
+                   filter for the current build directory.
 
 Options:
   --in-dir DIR     The 'input' directory to use for the code coverage
@@ -55,7 +58,7 @@ NOTES:
 
 """
 #
-import os, sys, platform
+import os, sys, platform, json
 from nqbplib.docopt.docopt import docopt
 from . import utils2
 
@@ -75,7 +78,9 @@ def run( prj_dir, argv):
 
     # Default line/statement filter
     line_regex_filters = ['.*KIT_SYSTEM_ASSERT.*', ".*KIT_SYSTEM_TRACE.*"]
-    # TODO: If <filter-file> specific -->update 'line_filters'
+
+    # Optional filter file: its lists replace the default extract/remove patterns
+    (extract_list, remove_list) = load_filter_file( args['<filter-file>'] )
 
     # get the package root
     pkg = os.environ.get('NQBP_PKG_ROOT')
@@ -85,15 +90,17 @@ def run( prj_dir, argv):
 
     # Generate report
     if args['sum']:
-        # Default filter pattern
-        if not args['<filter-file>']:
-            generate_unit_test_report( pkg, prj_dir, args )
-            print_summary( LCOV_OFILE )
+        if remove_list is None:
+            remove_list = [args['--test-dir'], "*/src/Kit/Json/Arduino.h"]
+        generate_unit_test_report( pkg, prj_dir, args, remove_list, extract_list )
+        print_summary( LCOV_OFILE )
 
     # Generate and view HTML
     elif args['view'] :
         # Generate HTML report
-        generate_unit_test_report( pkg, prj_dir, args, [args['--test-dir'], "*/src/Kit/Json/Arduino.h"] )
+        if remove_list is None:
+            remove_list = [args['--test-dir'], "*/src/Kit/Json/Arduino.h"]
+        generate_unit_test_report( pkg, prj_dir, args, remove_list, extract_list )
         generate_html_report( LCOV_OFILE, args['--html-dir'], args )
 
         # View HTML report
@@ -103,7 +110,9 @@ def run( prj_dir, argv):
     # Generate for CI
     elif args['ci'] or args['ciview']:
         # Generate HTML report
-        generate_unit_test_report( pkg, prj_dir, args, [args['--test-dir'], "xpkgs/", "_support/", "*/src/Kit/Json/Arduino.h"] )
+        if remove_list is None:
+            remove_list = [args['--test-dir'], "xpkgs/", "_support/", "*/src/Kit/Json/Arduino.h"]
+        generate_unit_test_report( pkg, prj_dir, args, remove_list, extract_list )
         generate_html_report( LCOV_OFILE, args['--html-dir'], args )
 
         if args['ciview']:
@@ -112,10 +121,41 @@ def run( prj_dir, argv):
             open_html_in_browser( html_index_path )
 
 #------------------------------------------------------------------------------
-def generate_unit_test_report( pkg, prj_dir, args, remove_list ):
-    dir_under_test = derive_unit_test_dir(pkg, prj_dir, args['--test-dir'])
-    extract_metrics( LCOV_OFILE, LCOV_OFILE, dir_under_test )
-    remove_metrics( LCOV_OFILE, LCOV_OFILE, remove_list )
+def load_filter_file( filter_file ):
+    """Returns the tuple (extract_list, remove_list). An entry is None when it
+       is not specified, i.e. the caller's default applies.
+    """
+    if not filter_file:
+        return (None, None)
+
+    try:
+        with open( filter_file, 'r' ) as f:
+            data = json.load( f )
+    except (OSError, ValueError) as e:
+        sys.exit( f"ERROR: Unable to read filter-file '{filter_file}': {e}" )
+
+    valid_keys = ('extract', 'remove')
+    if not isinstance( data, dict ) or not set( data ).issubset( valid_keys ):
+        sys.exit( f"ERROR: filter-file '{filter_file}' must be a JSON object with only the keys: {', '.join( valid_keys )}" )
+
+    lists = []
+    for key in valid_keys:
+        value = data.get( key )
+        if value is not None and ( not isinstance( value, list ) or not all( isinstance( p, str ) for p in value ) ):
+            sys.exit( f"ERROR: '{key}' in filter-file '{filter_file}' must be a list of strings" )
+        lists.append( value )
+
+    if lists[0] is not None and len( lists[0] ) == 0:
+        sys.exit( f"ERROR: 'extract' in filter-file '{filter_file}' must not be empty" )
+
+    return tuple( lists )
+
+def generate_unit_test_report( pkg, prj_dir, args, remove_list, extract_list=None ):
+    if extract_list is None:
+        extract_list = [derive_unit_test_dir(pkg, prj_dir, args['--test-dir'])]
+    extract_metrics( LCOV_OFILE, LCOV_OFILE, " ".join( extract_list ) )
+    if remove_list:
+        remove_metrics( LCOV_OFILE, LCOV_OFILE, remove_list )
 
 def capture_metrics( srcdir, outfile, filter_lines=None  ):
     xlines = ""
